@@ -54,7 +54,9 @@ int main(int argc, char **argv)
                    SRC_FOLDER "platform/window.c",
                    SRC_FOLDER "platform/input.c",
                    SRC_FOLDER "platform/time.c",
-                   SRC_FOLDER "renderer/renderer.c");
+                   SRC_FOLDER "renderer/renderer.c",
+                   SRC_FOLDER "core/camera.c"
+                );
 
     // Let's execute the command.
     if (!nob_cmd_run(&cmd)) return 1;

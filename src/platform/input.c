@@ -1,13 +1,6 @@
 #include "input.h"
 #include <string.h>
 
-void input_begin_frame(Input* input) {
-    memset(input->keyboard.pressed, 0, INPUT_MAX_KEYS);
-    memset(input->keyboard.released, 0, INPUT_MAX_KEYS);
-    memset(input->mouse.buttons_pressed, 0, INPUT_MAX_MOUSE_BUTTONS);
-    memset(input->mouse.buttons_released, 0, INPUT_MAX_MOUSE_BUTTONS);
-}
-
 void input_process_event(Input* input, SDL_Event* event) {
     switch (event->type) {
         case SDL_QUIT: input->quit_requested = 1; break;
@@ -18,6 +11,8 @@ void input_process_event(Input* input, SDL_Event* event) {
                 if (event->type == SDL_KEYDOWN) {
                     if (!input->keyboard.down[key]) input->keyboard.pressed[key] = 1;
                     input->keyboard.down[key] = 1;
+
+                    if (key == SDL_SCANCODE_ESCAPE) input->quit_requested = 1;
                 } else {
                     input->keyboard.down[key] = 0;
                     input->keyboard.released[key] = 1;
@@ -31,8 +26,9 @@ void input_process_event(Input* input, SDL_Event* event) {
             break;
         case SDL_MOUSEBUTTONDOWN:
         case SDL_MOUSEBUTTONUP: {
-            int button = event->button.button - 1;
-            if (button >= 0 && button < INPUT_MAX_MOUSE_BUTTONS) {
+            int button = event->button.button;
+            if (button >= 1 && button <= INPUT_MAX_MOUSE_BUTTONS) {
+                button -= 1;
                 if (event->type == SDL_MOUSEBUTTONDOWN) {
                     if (!input->mouse.buttons[button]) input->mouse.buttons_pressed[button] = 1;
                     input->mouse.buttons[button] = 1;
@@ -55,5 +51,8 @@ void input_update(Input* input) {
 }
 
 void input_end_frame(Input* input) {
-    (void)input; // silence unused parameter warning
+    memset(input->keyboard.pressed, 0, sizeof(input->keyboard.pressed));
+    memset(input->keyboard.released, 0, sizeof(input->keyboard.released));
+    memset(input->mouse.buttons_pressed, 0, sizeof(input->mouse.buttons_pressed));
+    memset(input->mouse.buttons_released, 0, sizeof(input->mouse.buttons_released));
 }

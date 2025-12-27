@@ -33,3 +33,70 @@ Vec4 mat4_mul_vec4(Mat4 m, Vec4 v) {
     r.w = m.m[3][0]*v.x + m.m[3][1]*v.y + m.m[3][2]*v.z + m.m[3][3]*v.w;
     return r;
 }
+
+
+Mat4 mat4_translation(Vec3 t) {
+    Mat4 r = mat4_identity();
+    r.m[3][0] = t.x;
+    r.m[3][1] = t.y;
+    r.m[3][2] = t.z;
+    return r;
+}
+
+Mat4 mat4_scale(Vec3 s) {
+    Mat4 r = mat4_identity();
+    r.m[0][0] = s.x;
+    r.m[1][1] = s.y;
+    r.m[2][2] = s.z;
+    return r;
+}
+
+Mat4 mat4_rotation_x(float radians) {
+    Mat4 r = mat4_identity();
+    float c = cosf(radians);
+    float s = sinf(radians);
+    r.m[1][1] = c; r.m[1][2] = -s;
+    r.m[2][1] = s; r.m[2][2] = c;
+    return r;
+}
+
+Mat4 mat4_rotation_y(float radians) {
+    Mat4 r = mat4_identity();
+    float c = cosf(radians);
+    float s = sinf(radians);
+    r.m[0][0] = c; r.m[0][2] = s;
+    r.m[2][0] = -s; r.m[2][2] = c;
+    return r;
+}
+
+Mat4 mat4_rotation_z(float radians) {
+    Mat4 r = mat4_identity();
+    float c = cosf(radians);
+    float s = sinf(radians);
+    r.m[0][0] = c; r.m[0][1] = -s;
+    r.m[1][0] = s; r.m[1][1] = c;
+    return r;
+}
+
+Mat4 mat4_perspective(float fov, float aspect, float near, float far) {
+    float f = 1.0f / tanf(fov / 2.0f);
+    Mat4 m;
+    memset(&m, 0, sizeof(m));
+    m.m[0][0] = f / aspect;
+    m.m[1][1] = f;
+    m.m[2][2] = (far + near) / (near - far);
+    m.m[2][3] = (2.0f * far * near) / (near - far);
+    m.m[3][2] = -1.0f;
+    return m;
+}
+
+Vec3 mat4_mul_vec3(Mat4 m, Vec3 v) {
+    float x = v.x*m.m[0][0] + v.y*m.m[1][0] + v.z*m.m[2][0] + m.m[3][0];
+    float y = v.x*m.m[0][1] + v.y*m.m[1][1] + v.z*m.m[2][1] + m.m[3][1];
+    float z = v.x*m.m[0][2] + v.y*m.m[1][2] + v.z*m.m[2][2] + m.m[3][2];
+    float w = v.x*m.m[0][3] + v.y*m.m[1][3] + v.z*m.m[2][3] + m.m[3][3];
+    if (w != 0.0f) {
+        x /= w; y /= w; z /= w;
+    }
+    return (Vec3){x, y, z};
+}
