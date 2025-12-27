@@ -1,4 +1,6 @@
 build/
+tools/asset2pak
+tools/obj2c
 nob
 nob.old
 obj2c
