@@ -39,11 +39,18 @@ int main(int argc, char **argv)
     // success, false - failure). If the operation returned false you don't need to log anything, the
     // convention is usually that the function logs what happened to itself. Just do
     // `if (!nob_function()) return;`
-    if (!nob_mkdir_if_not_exists(BUILD_FOLDER)) return 1;
 
     // The working horse of nob is the Nob_Cmd structure. It's a Dynamic Array of strings which represent
     // command line that you want to execute.
     Nob_Cmd cmd = {0};
+
+    if (argc > 1 && strcmp(argv[1], "obj2c") == 0) {
+	nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-o", TOOLS_FOLDER"obj2c", TOOLS_FOLDER"obj2c.c");
+	if (!nob_cmd_run(&cmd)) return 1;
+	return 0;
+    }
+
+    if (!nob_mkdir_if_not_exists(BUILD_FOLDER)) return 1;
 
     // Let's append the command line arguments
     nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-lSDL2", "-lm", "-O3", "-march=native", "-flto",
@@ -66,12 +73,6 @@ int main(int argc, char **argv)
 
     // Let's execute the command.
     if (!nob_cmd_run(&cmd)) return 1;
-
-    // Build the obj2c tool
-    if (argc > 1 && strcmp(argv[1], "obj2c") == 0) {
-	    nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-o", TOOLS_FOLDER"obj2c", TOOLS_FOLDER"obj2c.c");
-	    if (!nob_cmd_run(&cmd)) return 1;
-    }
     // nob_cmd_run() automatically resets the cmd array, so you can nob_cmd_append() more strings
     // into it.
 
