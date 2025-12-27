@@ -30,19 +30,20 @@ Camera camera_create(Vec3 position, Vec3 target, Vec3 up, float speed, float sen
 
 Mat4 camera_get_view(Camera* cam) {
     Vec3 forward = vec3_normalize(vec3_sub(cam->target, cam->position));
-    Vec3 right   = vec3_normalize(vec3_cross(cam->up, forward));
-    Vec3 up      = vec3_cross(forward, right);
+    Vec3 right   = vec3_normalize(vec3_cross(forward, cam->up));
+    Vec3 up      = vec3_cross(right, forward);
 
     Mat4 view = mat4_identity();
-    view.m[0][0] = right.x; view.m[1][0] = right.y; view.m[2][0] = right.z; view.m[3][0] = -vec3_dot(right, cam->position);
-    view.m[0][1] = up.x;    view.m[1][1] = up.y;    view.m[2][1] = up.z;    view.m[3][1] = -vec3_dot(up, cam->position);
-    view.m[0][2] = -forward.x; view.m[1][2] = -forward.y; view.m[2][2] = -forward.z; view.m[3][2] = vec3_dot(forward, cam->position);
+    view.m[0][0] = right.x; view.m[0][1] = right.y; view.m[0][2] = right.z; view.m[0][3] = -vec3_dot(right, cam->position);
+    view.m[1][0] = up.x;    view.m[1][1] = up.y;    view.m[1][2] = up.z;    view.m[1][3] = -vec3_dot(up, cam->position);
+    view.m[2][0] = -forward.x; view.m[2][1] = -forward.y; view.m[2][2] = -forward.z; view.m[2][3] = vec3_dot(forward, cam->position);
+    view.m[3][0] = 0.0f; view.m[3][1] = 0.0f; view.m[3][2] = 0.0f; view.m[3][3] = 1.0f;
     return view;
 }
 
 void camera_process_input(Camera* cam, CameraInput input, float delta_time) {
     Vec3 forward = vec3_normalize(vec3_sub(cam->target, cam->position));
-    Vec3 right   = vec3_normalize(vec3_cross(cam->up, forward));
+    Vec3 right   = vec3_normalize(vec3_cross(forward, cam->up));
     float velocity = cam->speed * delta_time;
 
     if (input.move_forward) cam->position = vec3_add(cam->position, vec3_scale(forward, velocity));
@@ -51,8 +52,7 @@ void camera_process_input(Camera* cam, CameraInput input, float delta_time) {
     if (input.move_right)   cam->position = vec3_add(cam->position, vec3_scale(right, velocity));
 
     camera_process_mouse(cam, input.mouse_dx, input.mouse_dy);
-
-    cam->target = vec3_add(cam->position, forward);
+    camera_update_direction(cam);
 }
 
 void camera_update_direction(Camera* cam) {

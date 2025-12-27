@@ -37,9 +37,9 @@ Vec4 mat4_mul_vec4(Mat4 m, Vec4 v) {
 
 Mat4 mat4_translation(Vec3 t) {
     Mat4 r = mat4_identity();
-    r.m[3][0] = t.x;
-    r.m[3][1] = t.y;
-    r.m[3][2] = t.z;
+    r.m[0][3] = t.x;
+    r.m[1][3] = t.y;
+    r.m[2][3] = t.z;
     return r;
 }
 
@@ -91,12 +91,9 @@ Mat4 mat4_perspective(float fov, float aspect, float near, float far) {
 }
 
 Vec3 mat4_mul_vec3(Mat4 m, Vec3 v) {
-    float x = v.x*m.m[0][0] + v.y*m.m[1][0] + v.z*m.m[2][0] + m.m[3][0];
-    float y = v.x*m.m[0][1] + v.y*m.m[1][1] + v.z*m.m[2][1] + m.m[3][1];
-    float z = v.x*m.m[0][2] + v.y*m.m[1][2] + v.z*m.m[2][2] + m.m[3][2];
-    float w = v.x*m.m[0][3] + v.y*m.m[1][3] + v.z*m.m[2][3] + m.m[3][3];
-    if (w != 0.0f) {
-        x /= w; y /= w; z /= w;
+    Vec4 r4 = mat4_mul_vec4(m, (Vec4){ v.x, v.y, v.z, 1.0f });
+    if (fabsf(r4.w) > 1e-9f) {
+        return (Vec3){ r4.x / r4.w, r4.y / r4.w, r4.z / r4.w };
     }
-    return (Vec3){x, y, z};
+    return (Vec3){ r4.x, r4.y, r4.z };
 }

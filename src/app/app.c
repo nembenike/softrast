@@ -31,7 +31,7 @@ App* app_create(int width, int height, const char* title) {
     time_init(&app->time);
     memset(&app->input, 0, sizeof(Input));
 
-    app->camera = camera_create((Vec3){0,0,0}, (Vec3){0,0,1}, (Vec3){0,1,0}, 5.0f, 0.1f);
+    app->camera = camera_create((Vec3){0,0,3}, (Vec3){0,0,0}, (Vec3){0,1,0}, 5.0f, 0.1f);
 
     app->width = width;
     app->height = height;
@@ -57,12 +57,18 @@ void app_run(App* app) {
     };
 
     int tris[12][3] = {
-        {0,2,1},{0,3,2},
-        {4,5,6},{4,6,7},
-        {0,1,5},{0,5,4},
-        {3,7,6},{3,6,2},
-        {0,4,7},{0,7,3},
-        {1,2,6},{1,6,5}
+        // back (z = -1)
+        {0,1,2}, {0,2,3},
+        // front (z = 1)
+        {4,5,6}, {4,6,7},
+        // bottom (y = -1)
+        {0,4,5}, {0,5,1},
+        // top (y = 1)
+        {3,2,6}, {3,6,7},
+        // left (x = -1)
+        {0,3,7}, {0,7,4},
+        // right (x = 1)
+        {1,5,6}, {1,6,2}
     };
 
     Mat4 proj = mat4_perspective(3.14159265f/3.0f, (float)app->width/app->height, 0.1f, 100.0f);
@@ -87,8 +93,8 @@ void app_run(App* app) {
         renderer_clear(app->renderer, 0xFF000000);
 
         Mat4 rotation = mat4_rotation_y(angle);
-        Mat4 translation = mat4_translation((Vec3){0,0,5});
-        Mat4 model = mat4_mul(rotation, translation);
+        Mat4 translation = mat4_translation((Vec3){0,0,-5});
+        Mat4 model = mat4_mul(translation, rotation);
 
         Mat4 view = camera_get_view(&app->camera);
 
@@ -99,17 +105,24 @@ void app_run(App* app) {
                 view_space[j] = mat4_mul_vec3(view, world[j]);
             }
 
-            Vec3 e1 = vec3_sub(view_space[1], view_space[0]);
-            Vec3 e2 = vec3_sub(view_space[2], view_space[0]);
-            Vec3 normal = vec3_cross(e1, e2);
-            if (normal.z >= 0.0f) continue;
-
+            int clip_bad = 0;
             for (int j=0;j<3;j++) {
                 Vec4 clip = mat4_mul_vec4(proj, (Vec4){view_space[j].x, view_space[j].y, view_space[j].z,1});
-                if (fabsf(clip.w) < 1e-6f) continue;
+                if (fabsf(clip.w) < 1e-6f) { clip_bad = 1; break; }
                 Vec3 ndc = { clip.x/clip.w, clip.y/clip.w, clip.z/clip.w };
                 ndc.z = (ndc.z+1.0f)*0.5f;
                 screen[j] = ndc_to_screen(ndc, app->width, app->height);
+            }
+            if (clip_bad) continue;
+
+            float area = (screen[1].x - screen[0].x) * (screen[2].y - screen[0].y)
+                       - (screen[1].y - screen[0].y) * (screen[2].x - screen[0].x);
+
+            if (fabsf(area) < 1e-6f) continue; // degenerate
+            if (area < 0.0f) {
+                Vec3 tmp = screen[1];
+                screen[1] = screen[2];
+                screen[2] = tmp;
             }
 
             renderer_draw_triangle(app->renderer, screen[0], screen[1], screen[2], 0xFFFF0000);
