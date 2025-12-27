@@ -75,6 +75,9 @@ int main(int argc, char **argv)
         build_assets(&cmd);
     }
 
+    if (!nob_mkdir_if_not_exists(BUILD_FOLDER))
+        return 1;
+
     // Let's append the command line arguments
     nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-lSDL2", "-lm", "-O3", "-march=native", "-flto",
                    "-o", BUILD_FOLDER "engine",

@@ -14,6 +14,12 @@
 #include "../assets/pakloader.h"
 #include "../assets/objloader.h"
 
+typedef enum {
+    APP_STATE_LOADING,
+    APP_STATE_RUNNING,
+    APP_STATE_EXITING
+} AppState;
+
 struct App {
     Window* window;
     Input input;
@@ -28,6 +34,11 @@ struct App {
     Face* loaded_faces;
     size_t loaded_vertex_count;
     size_t loaded_face_count;
+    AppState state;
+    int loading_started;
+    int loading_done;
+    float loading_start_time;
+    char loading_message[128];
 };
 
 static const Vec3 cube[8] = {
@@ -85,6 +96,14 @@ static void update_angle(float* angle) {
     if (*angle > 2.0f*3.14159265f) *angle -= 2.0f*3.14159265f;
 }
 
+static int text_pixel_width(const char* text, int scale) {
+    if (!text) return 0;
+    int len = (int)strlen(text);
+    if (len <= 0) return 0;
+    int spacing = scale;
+    return len * (3 * scale) + (len - 1) * spacing;
+}
+
 App* app_create(int width, int height, const char* title) {
     App* app = malloc(sizeof(App));
     if (!app) return NULL;
@@ -111,39 +130,11 @@ App* app_create(int width, int height, const char* title) {
         app->loaded_faces = NULL;
         app->loaded_vertex_count = 0;
         app->loaded_face_count = 0;
-
-        PakFile pak = {0};
-        if (pak_open(&pak, "build/assets.pak")) {
-            LOG_INFO("Opened asset pak with %u entries", pak.asset_count);
-            AssetEntry* e = pak_find(&pak, "teapot.obj");
-            if (e) {
-                uint8_t* data = pak_read_asset(&pak, e);
-                if (data) {
-                    if (obj_parse_from_memory(data, e->size, &app->loaded_vertices, &app->loaded_vertex_count,
-                                               &app->loaded_faces, &app->loaded_face_count)) {
-                        // parsed successfully
-                        LOG_INFO("Loaded teapot mesh: %zu vertices, %zu faces",
-                                 app->loaded_vertex_count, app->loaded_face_count);
-                    } else {
-                        // parse failed: cleanup
-                        if (app->loaded_vertices) free(app->loaded_vertices);
-                        if (app->loaded_faces) free(app->loaded_faces);
-                        app->loaded_vertices = NULL;
-                        app->loaded_faces = NULL;
-                        app->loaded_vertex_count = 0;
-                        app->loaded_face_count = 0;
-                    }
-                    free(data);
-                }
-            }
-            pak_close(&pak);
-        }
-
-        if (app->loaded_vertices && app->loaded_faces) {
-            app->teapot = teapot_renderer_create(app->loaded_vertices, app->loaded_faces, app->loaded_vertex_count, app->loaded_face_count);
-        } else {
-            app->teapot = NULL;
-        }
+        app->state = APP_STATE_LOADING;
+        app->loading_started = 0;
+        app->loading_done = 0;
+        app->loading_start_time = 0.0f;
+        app->loading_message[0] = '\0';
 
     return app;
 }
@@ -165,29 +156,116 @@ void app_run(App* app) {
     while (!window_should_close(app->window) && !app->input.quit_requested) {
         input_update(&app->input);
         time_update(&app->time);
+        if (app->state == APP_STATE_LOADING) {
+            if (!app->loading_started) {
+                app->loading_started = 1;
+                app->loading_done = 0;
+                app->loading_start_time = app->time.total_seconds;
+                snprintf(app->loading_message, sizeof(app->loading_message), "Opening %s", "build/assets.pak");
+                renderer_clear(app->renderer, 0xFF000000);
+                {
+                    int w = text_pixel_width(app->loading_message, 4);
+                    int x = app->width/2 - w/2;
+                    if (x < 0) x = 0;
+                    overlay_draw_text(app->renderer, app->loading_message, x, app->height/2 - 8, 4, 0xFFFFFFFF);
+                }
+                renderer_present(app->renderer);
+                input_end_frame(&app->input);
+                continue;
+            }
 
-        handle_camera_input(app);
+            if (!app->loading_done) {
+                PakFile pak = {0};
+                snprintf(app->loading_message, sizeof(app->loading_message), "Opening %s", "build/assets.pak");
+                if (pak_open(&pak, "build/assets.pak")) {
+                    LOG_INFO("Opened asset pak with %u entries", pak.asset_count);
+                    snprintf(app->loading_message, sizeof(app->loading_message), "Looking for %s", "teapot.obj");
+                    AssetEntry* e = pak_find(&pak, "teapot.obj");
+                    if (e) {
+                        snprintf(app->loading_message, sizeof(app->loading_message), "Loading %s", e->name);
+                        uint8_t* data = pak_read_asset(&pak, e);
+                        if (data) {
+                            if (obj_parse_from_memory(data, e->size, &app->loaded_vertices, &app->loaded_vertex_count,
+                                                       &app->loaded_faces, &app->loaded_face_count)) {
+                                LOG_INFO("Loaded teapot mesh: %zu vertices, %zu faces",
+                                         app->loaded_vertex_count, app->loaded_face_count);
+                            } else {
+                                LOG_ERROR("Failed to parse teapot mesh");
+                                if (app->loaded_vertices) free(app->loaded_vertices);
+                                if (app->loaded_faces) free(app->loaded_faces);
+                                app->loaded_vertices = NULL;
+                                app->loaded_faces = NULL;
+                                app->loaded_vertex_count = 0;
+                                app->loaded_face_count = 0;
+                                snprintf(app->loading_message, sizeof(app->loading_message), "Failed to parse %s", e->name);
+                            }
+                            free(data);
+                        } else {
+                            snprintf(app->loading_message, sizeof(app->loading_message), "Failed to read %s", e->name);
+                        }
+                    } else {
+                        snprintf(app->loading_message, sizeof(app->loading_message), "%s not found", "teapot.obj");
+                    }
+                    pak_close(&pak);
+                } else {
+                    snprintf(app->loading_message, sizeof(app->loading_message), "Failed to open %s", "build/assets.pak");
+                }
 
-        if (app->input.keyboard.pressed[SDL_SCANCODE_TAB]) {
-            app->wireframe = !app->wireframe;
+                app->loading_done = 1;
+            }
+
+            renderer_clear(app->renderer, 0xFF000000);
+            {
+                int w = text_pixel_width(app->loading_message, 4);
+                int x = app->width/2 - w/2;
+                if (x < 0) x = 0;
+                overlay_draw_text(app->renderer, app->loading_message, x, app->height/2 - 8, 4, 0xFFFFFFFF);
+            }
+            renderer_present(app->renderer);
+
+            if ((app->time.total_seconds - app->loading_start_time) < 1.0f) {
+                input_end_frame(&app->input);
+                continue;
+            }
+
+            if (app->loaded_vertices && app->loaded_faces) {
+                app->teapot = teapot_renderer_create(app->loaded_vertices, app->loaded_faces, app->loaded_vertex_count, app->loaded_face_count);
+            } else {
+                app->teapot = NULL;
+            }
+
+            app->state = APP_STATE_RUNNING;
+            continue;
         }
 
-        renderer_clear(app->renderer, 0xFF000000);
+        if (app->state == APP_STATE_RUNNING) {
+            handle_camera_input(app);
 
-        Mat4 model = compute_model_matrix(angle);
-        Mat4 view  = camera_get_view(&app->camera);
+            if (app->input.keyboard.pressed[SDL_SCANCODE_TAB]) {
+                app->wireframe = !app->wireframe;
+            }
 
-        int teapot_visible = 0;
-        if (app->teapot) {
-            teapot_visible = teapot_renderer_update(app->teapot, model, view, proj, app->camera.position, app->width, app->height);
-            if (teapot_visible) teapot_renderer_draw(app->teapot, app->renderer, app->wireframe);
+            renderer_clear(app->renderer, 0xFF000000);
+
+            Mat4 model = compute_model_matrix(angle);
+            Mat4 view  = camera_get_view(&app->camera);
+
+            int teapot_visible = 0;
+            if (app->teapot) {
+                teapot_visible = teapot_renderer_update(app->teapot, model, view, proj, app->camera.position, app->width, app->height);
+                if (teapot_visible) teapot_renderer_draw(app->teapot, app->renderer, app->wireframe);
+            }
+
+            overlay_draw_fps(app->renderer, app->time.delta_seconds);
+
+            renderer_present(app->renderer);
+
+            update_angle(&angle);
         }
 
-        overlay_draw_fps(app->renderer, app->time.delta_seconds);
-
-        renderer_present(app->renderer);
-
-        update_angle(&angle);
+        if (app->state == APP_STATE_EXITING) {
+            break;
+        }
 
         input_end_frame(&app->input);
     }
