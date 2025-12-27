@@ -26,6 +26,21 @@
 #define SRC_FOLDER   "src/"
 #define TOOLS_FOLDER "tools/"
 
+int build_assets(Nob_Cmd* cmd) {
+    if (!nob_mkdir_if_not_exists(BUILD_FOLDER)) return 1;
+
+    // Compile the asset packer
+    nob_cmd_append(cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-o", TOOLS_FOLDER"asset2pak", TOOLS_FOLDER"asset2pak.c");
+    if (!nob_cmd_run(cmd)) return 1;
+
+    // Run asset packer
+    nob_cmd_append(cmd, "./tools/asset2pak", BUILD_FOLDER"assets.pak", "assets/objs/teapot.obj");
+    if (!nob_cmd_run(cmd)) return 1;
+
+    return 0;
+}
+
+
 int main(int argc, char **argv)
 {
     // This line enables the self-rebuilding. It detects when nob.c is updated and auto rebuilds it then
@@ -50,7 +65,9 @@ int main(int argc, char **argv)
 	return 0;
     }
 
-    if (!nob_mkdir_if_not_exists(BUILD_FOLDER)) return 1;
+    if (argc > 1 && strcmp(argv[1], "assets") == 0) {
+        build_assets(&cmd);
+    }
 
     // Let's append the command line arguments
     nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-lSDL2", "-lm", "-O3", "-march=native", "-flto",
