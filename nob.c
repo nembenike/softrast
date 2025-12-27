@@ -45,7 +45,7 @@ int main(int argc, char **argv)
     Nob_Cmd cmd = {0};
 
     // Let's append the command line arguments
-    nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-lSDL2", "-lm",
+    nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-lSDL2", "-lm", "-O3", "-march=native", "-flto",
                    "-o", BUILD_FOLDER "engine",
                    SRC_FOLDER "main.c",
                    SRC_FOLDER "app/app.c",
@@ -55,7 +55,12 @@ int main(int argc, char **argv)
                    SRC_FOLDER "platform/input.c",
                    SRC_FOLDER "platform/time.c",
                    SRC_FOLDER "renderer/renderer.c",
-                   SRC_FOLDER "core/camera.c"
+                 SRC_FOLDER "core/geom.c",
+                   SRC_FOLDER "culling.c",
+                   SRC_FOLDER "scene/teapot_renderer.c",
+                         SRC_FOLDER "core/camera.c",
+                     SRC_FOLDER "teapot.c",
+                     SRC_FOLDER "ui/overlay.c"
                 );
 
     // Let's execute the command.

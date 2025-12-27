@@ -110,6 +110,60 @@ void renderer_draw_triangle(Renderer* r, Vec3 v0, Vec3 v1, Vec3 v2, uint32_t col
     }
 }
 
+void renderer_draw_line(Renderer* r, Vec3 p0, Vec3 p1, uint32_t color) {
+    int x0 = (int)roundf(p0.x);
+    int y0 = (int)roundf(p0.y);
+    int x1 = (int)roundf(p1.x);
+    int y1 = (int)roundf(p1.y);
+
+    int dx = abs(x1 - x0);
+    int dy = abs(y1 - y0);
+    int steps = dx > dy ? dx : dy;
+    if (steps == 0) {
+        if (x0 >= 0 && x0 < r->width && y0 >= 0 && y0 < r->height) {
+            int idx = y0 * r->width + x0;
+            if (p0.z < r->zbuffer[idx]) {
+                r->zbuffer[idx] = p0.z;
+                r->framebuffer[idx] = color;
+            }
+        }
+        return;
+    }
+
+    for (int i = 0; i <= steps; ++i) {
+        float t = (float)i / (float)steps;
+        int x = (int)roundf(x0 + (x1 - x0) * t);
+        int y = (int)roundf(y0 + (y1 - y0) * t);
+        float z = p0.z * (1.0f - t) + p1.z * t;
+
+        if (x < 0 || x >= r->width || y < 0 || y >= r->height) continue;
+        int idx = y * r->width + x;
+        if (z < r->zbuffer[idx]) {
+            r->zbuffer[idx] = z;
+            r->framebuffer[idx] = color;
+        }
+    }
+}
+
+void renderer_draw_rect(Renderer* r, int x, int y, int w, int h, uint32_t color) {
+    if (!r || !r->framebuffer) return;
+    if (w <= 0 || h <= 0) return;
+
+    int x0 = x < 0 ? 0 : x;
+    int y0 = y < 0 ? 0 : y;
+    int x1 = x + w - 1;
+    int y1 = y + h - 1;
+    if (x1 >= r->width) x1 = r->width - 1;
+    if (y1 >= r->height) y1 = r->height - 1;
+
+    for (int yy = y0; yy <= y1; ++yy) {
+        int base = yy * r->width;
+        for (int xx = x0; xx <= x1; ++xx) {
+            r->framebuffer[base + xx] = color;
+        }
+    }
+}
+
 Vec3 ndc_to_screen(Vec3 v, int width, int height) {
     return (Vec3){
         (v.x + 1.0f) * 0.5f * width,

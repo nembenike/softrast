@@ -6,6 +6,11 @@
 #include "app.h"
 #include "../core/mat.h"
 #include "../core/vec.h"
+#include "../teapot.h"
+#include "../ui/overlay.h"
+#include "../culling.h"
+#include "../scene/teapot_renderer.h"
+#include "../core/geom.h"
 
 struct App {
     Window* window;
@@ -15,6 +20,8 @@ struct App {
     Camera camera;
     int width;
     int height;
+    int wireframe;
+    struct TeapotRenderer* teapot;
 };
 
 static const Vec3 cube[8] = {
@@ -52,42 +59,16 @@ static Mat4 compute_model_matrix(float angle) {
     return mat4_mul(translation, rotation);
 }
 
-static Vec3 transform_vertex(Mat4 m, Vec3 v) {
-    return mat4_mul_vec3(m, v);
-}
-
-static Vec3 project_vertex(Mat4 view, Mat4 proj, Vec3 world, int width, int height) {
-    Vec3 view_space = mat4_mul_vec3(view, world);
-    Vec4 clip = mat4_mul_vec4(proj, (Vec4){view_space.x, view_space.y, view_space.z, 1.0f});
-    if (fabsf(clip.w) < 1e-6f) return (Vec3){INFINITY, INFINITY, INFINITY};
-    Vec3 ndc = { clip.x/clip.w, clip.y/clip.w, clip.z/clip.w };
-    ndc.z = (ndc.z+1.0f)*0.5f;
-    return ndc_to_screen(ndc, width, height);
-}
-
-static int backface_cull(Vec3 screen[3]) {
-    float area = (screen[1].x - screen[0].x) * (screen[2].y - screen[0].y)
-               - (screen[1].y - screen[0].y) * (screen[2].x - screen[0].x);
-    if (fabsf(area) < 1e-6f) return 1; // degenerate
-    if (area < 0.0f) { // flip triangle winding
-        Vec3 tmp = screen[1];
-        screen[1] = screen[2];
-        screen[2] = tmp;
-    }
-    return 0;
-}
-
 static void draw_cube(Renderer* renderer, Mat4 model, Mat4 view, Mat4 proj, int width, int height) {
     for (int i=0;i<12;i++) {
         Vec3 world[3], screen[3];
         int clip_bad = 0;
         for (int j=0;j<3;j++) {
-            world[j] = transform_vertex(model, cube[tris[i][j]]);
-            screen[j] = project_vertex(view, proj, world[j], width, height);
-            if (screen[j].x == INFINITY) { clip_bad = 1; break; }
+            world[j] = geom_transform_point(model, cube[tris[i][j]]);
+            if (!geom_project_point(view, proj, world[j], width, height, &screen[j], NULL)) { clip_bad = 1; break; }
         }
         if (clip_bad) continue;
-        if (backface_cull(screen)) continue;
+        if (geom_triangle_backface_cull(screen)) continue;
 
         renderer_draw_triangle(renderer, screen[0], screen[1], screen[2], 0xFFFF0000);
     }
@@ -116,8 +97,11 @@ App* app_create(int width, int height, const char* title) {
 
     app->width = width;
     app->height = height;
+        app->wireframe = 1;
 
-    SDL_SetRelativeMouseMode(SDL_TRUE);
+        SDL_SetRelativeMouseMode(SDL_TRUE);
+
+        app->teapot = teapot_renderer_create(vertices, faces, vertex_count, face_count);
 
     return app;
 }
@@ -126,6 +110,7 @@ void app_destroy(App* app) {
     if (!app) return;
     renderer_destroy(app->renderer);
     window_destroy(app->window);
+    if (app->teapot) teapot_renderer_destroy(app->teapot);
     free(app);
 }
 
@@ -139,12 +124,22 @@ void app_run(App* app) {
 
         handle_camera_input(app);
 
+        if (app->input.keyboard.pressed[SDL_SCANCODE_TAB]) {
+            app->wireframe = !app->wireframe;
+        }
+
         renderer_clear(app->renderer, 0xFF000000);
 
         Mat4 model = compute_model_matrix(angle);
         Mat4 view  = camera_get_view(&app->camera);
 
-        draw_cube(app->renderer, model, view, proj, app->width, app->height);
+        int teapot_visible = 0;
+        if (app->teapot) {
+            teapot_visible = teapot_renderer_update(app->teapot, model, view, proj, app->camera.position, app->width, app->height);
+            if (teapot_visible) teapot_renderer_draw(app->teapot, app->renderer, app->wireframe);
+        }
+
+        overlay_draw_fps(app->renderer, app->time.delta_seconds);
 
         renderer_present(app->renderer);
 
