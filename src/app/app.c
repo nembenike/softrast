@@ -17,6 +17,87 @@ struct App {
     int height;
 };
 
+static const Vec3 cube[8] = {
+    {-1,-1,-1}, {1,-1,-1}, {1,1,-1}, {-1,1,-1},
+    {-1,-1,1}, {1,-1,1}, {1,1,1}, {-1,1,1}
+};
+
+static const int tris[12][3] = {
+    {0,1,2}, {0,2,3},  // back
+    {4,5,6}, {4,6,7},  // front
+    {0,4,5}, {0,5,1},  // bottom
+    {3,2,6}, {3,6,7},  // top
+    {0,3,7}, {0,7,4},  // left
+    {1,5,6}, {1,6,2}   // right
+};
+
+static void handle_camera_input(App* app) {
+    int dx, dy;
+    SDL_GetRelativeMouseState(&dx, &dy);
+
+    CameraInput cam_input = {0};
+    cam_input.move_forward = app->input.keyboard.down[SDL_SCANCODE_W];
+    cam_input.move_back    = app->input.keyboard.down[SDL_SCANCODE_S];
+    cam_input.move_left    = app->input.keyboard.down[SDL_SCANCODE_A];
+    cam_input.move_right   = app->input.keyboard.down[SDL_SCANCODE_D];
+    cam_input.mouse_dx     = (float)dx;
+    cam_input.mouse_dy     = (float)-dy;
+
+    camera_process_input(&app->camera, cam_input, app->time.delta_seconds);
+}
+
+static Mat4 compute_model_matrix(float angle) {
+    Mat4 rotation = mat4_rotation_y(angle);
+    Mat4 translation = mat4_translation((Vec3){0,0,-5});
+    return mat4_mul(translation, rotation);
+}
+
+static Vec3 transform_vertex(Mat4 m, Vec3 v) {
+    return mat4_mul_vec3(m, v);
+}
+
+static Vec3 project_vertex(Mat4 view, Mat4 proj, Vec3 world, int width, int height) {
+    Vec3 view_space = mat4_mul_vec3(view, world);
+    Vec4 clip = mat4_mul_vec4(proj, (Vec4){view_space.x, view_space.y, view_space.z, 1.0f});
+    if (fabsf(clip.w) < 1e-6f) return (Vec3){INFINITY, INFINITY, INFINITY};
+    Vec3 ndc = { clip.x/clip.w, clip.y/clip.w, clip.z/clip.w };
+    ndc.z = (ndc.z+1.0f)*0.5f;
+    return ndc_to_screen(ndc, width, height);
+}
+
+static int backface_cull(Vec3 screen[3]) {
+    float area = (screen[1].x - screen[0].x) * (screen[2].y - screen[0].y)
+               - (screen[1].y - screen[0].y) * (screen[2].x - screen[0].x);
+    if (fabsf(area) < 1e-6f) return 1; // degenerate
+    if (area < 0.0f) { // flip triangle winding
+        Vec3 tmp = screen[1];
+        screen[1] = screen[2];
+        screen[2] = tmp;
+    }
+    return 0;
+}
+
+static void draw_cube(Renderer* renderer, Mat4 model, Mat4 view, Mat4 proj, int width, int height) {
+    for (int i=0;i<12;i++) {
+        Vec3 world[3], screen[3];
+        int clip_bad = 0;
+        for (int j=0;j<3;j++) {
+            world[j] = transform_vertex(model, cube[tris[i][j]]);
+            screen[j] = project_vertex(view, proj, world[j], width, height);
+            if (screen[j].x == INFINITY) { clip_bad = 1; break; }
+        }
+        if (clip_bad) continue;
+        if (backface_cull(screen)) continue;
+
+        renderer_draw_triangle(renderer, screen[0], screen[1], screen[2], 0xFFFF0000);
+    }
+}
+
+static void update_angle(float* angle) {
+    *angle += 0.01f;
+    if (*angle > 2.0f*3.14159265f) *angle -= 2.0f*3.14159265f;
+}
+
 App* app_create(int width, int height, const char* title) {
     App* app = malloc(sizeof(App));
     if (!app) return NULL;
@@ -50,88 +131,24 @@ void app_destroy(App* app) {
 
 void app_run(App* app) {
     float angle = 0.0f;
-
-    Vec3 cube[8] = {
-        {-1,-1,-1}, {1,-1,-1}, {1,1,-1}, {-1,1,-1},
-        {-1,-1,1}, {1,-1,1}, {1,1,1}, {-1,1,1}
-    };
-
-    int tris[12][3] = {
-        // back (z = -1)
-        {0,1,2}, {0,2,3},
-        // front (z = 1)
-        {4,5,6}, {4,6,7},
-        // bottom (y = -1)
-        {0,4,5}, {0,5,1},
-        // top (y = 1)
-        {3,2,6}, {3,6,7},
-        // left (x = -1)
-        {0,3,7}, {0,7,4},
-        // right (x = 1)
-        {1,5,6}, {1,6,2}
-    };
-
     Mat4 proj = mat4_perspective(3.14159265f/3.0f, (float)app->width/app->height, 0.1f, 100.0f);
 
     while (!window_should_close(app->window) && !app->input.quit_requested) {
         input_update(&app->input);
         time_update(&app->time);
 
-        int dx, dy;
-        SDL_GetRelativeMouseState(&dx, &dy);
-
-        CameraInput cam_input = {0};
-        cam_input.move_forward = app->input.keyboard.down[SDL_SCANCODE_W];
-        cam_input.move_back    = app->input.keyboard.down[SDL_SCANCODE_S];
-        cam_input.move_left    = app->input.keyboard.down[SDL_SCANCODE_A];
-        cam_input.move_right   = app->input.keyboard.down[SDL_SCANCODE_D];
-        cam_input.mouse_dx     = (float)dx;
-        cam_input.mouse_dy     = (float)-dy;
-
-        camera_process_input(&app->camera, cam_input, app->time.delta_seconds);
+        handle_camera_input(app);
 
         renderer_clear(app->renderer, 0xFF000000);
 
-        Mat4 rotation = mat4_rotation_y(angle);
-        Mat4 translation = mat4_translation((Vec3){0,0,-5});
-        Mat4 model = mat4_mul(translation, rotation);
+        Mat4 model = compute_model_matrix(angle);
+        Mat4 view  = camera_get_view(&app->camera);
 
-        Mat4 view = camera_get_view(&app->camera);
-
-        for (int i=0;i<12;i++) {
-            Vec3 world[3], view_space[3], screen[3];
-            for (int j=0;j<3;j++) {
-                world[j] = mat4_mul_vec3(model, cube[tris[i][j]]);
-                view_space[j] = mat4_mul_vec3(view, world[j]);
-            }
-
-            int clip_bad = 0;
-            for (int j=0;j<3;j++) {
-                Vec4 clip = mat4_mul_vec4(proj, (Vec4){view_space[j].x, view_space[j].y, view_space[j].z,1});
-                if (fabsf(clip.w) < 1e-6f) { clip_bad = 1; break; }
-                Vec3 ndc = { clip.x/clip.w, clip.y/clip.w, clip.z/clip.w };
-                ndc.z = (ndc.z+1.0f)*0.5f;
-                screen[j] = ndc_to_screen(ndc, app->width, app->height);
-            }
-            if (clip_bad) continue;
-
-            float area = (screen[1].x - screen[0].x) * (screen[2].y - screen[0].y)
-                       - (screen[1].y - screen[0].y) * (screen[2].x - screen[0].x);
-
-            if (fabsf(area) < 1e-6f) continue; // degenerate
-            if (area < 0.0f) {
-                Vec3 tmp = screen[1];
-                screen[1] = screen[2];
-                screen[2] = tmp;
-            }
-
-            renderer_draw_triangle(app->renderer, screen[0], screen[1], screen[2], 0xFFFF0000);
-        }
+        draw_cube(app->renderer, model, view, proj, app->width, app->height);
 
         renderer_present(app->renderer);
 
-        angle += 0.01f;
-        if (angle > 2.0f*3.14159265f) angle -= 2.0f*3.14159265f;
+        update_angle(&angle);
 
         input_end_frame(&app->input);
     }
