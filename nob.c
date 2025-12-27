@@ -24,6 +24,7 @@
 // Some folder paths that we use throughout the build process.
 #define BUILD_FOLDER "build/"
 #define SRC_FOLDER   "src/"
+#define TOOLS_FOLDER "tools/"
 
 int main(int argc, char **argv)
 {
@@ -65,6 +66,12 @@ int main(int argc, char **argv)
 
     // Let's execute the command.
     if (!nob_cmd_run(&cmd)) return 1;
+
+    // Build the obj2c tool
+    if (argc > 1 && strcmp(argv[1], "obj2c") == 0) {
+	    nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-o", TOOLS_FOLDER"obj2c", TOOLS_FOLDER"obj2c.c");
+	    if (!nob_cmd_run(&cmd)) return 1;
+    }
     // nob_cmd_run() automatically resets the cmd array, so you can nob_cmd_append() more strings
     // into it.
 
