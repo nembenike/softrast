@@ -69,12 +69,9 @@ int main(int argc, char **argv)
             return 1;
         return 0;
     }
-
-    if (argc > 1 && strcmp(argv[1], "assets") == 0)
-    {
-        build_assets(&cmd);
-    }
-
+    
+    build_assets(&cmd);
+    
     if (!nob_mkdir_if_not_exists(BUILD_FOLDER))
         return 1;
 
