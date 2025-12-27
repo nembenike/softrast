@@ -12,4 +12,6 @@ int geom_project_point(Mat4 view, Mat4 proj, Vec3 world, int width, int height, 
 
 int geom_triangle_backface_cull(const Vec3 screen[3]);
 
+Vec3 mat4_mul_vec3_dir(Mat4 m, Vec3 v);
+
 #endif // CORE_GEOM_H

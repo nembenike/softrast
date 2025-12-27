@@ -15,6 +15,7 @@ void renderer_present(Renderer* r);
 void renderer_draw_triangle(Renderer* r, Vec3 v0, Vec3 v1, Vec3 v2, uint32_t color);
 void renderer_draw_line(Renderer* r, Vec3 v0, Vec3 v1, uint32_t color);
 void renderer_draw_rect(Renderer* r, int x, int y, int w, int h, uint32_t color);
+void renderer_draw_triangle_shaded(Renderer* r, Vec3 v0, Vec3 v1, Vec3 v2, uint32_t c0, uint32_t c1, uint32_t c2);
 
 Vec3 ndc_to_screen(Vec3 v, int width, int height);
 

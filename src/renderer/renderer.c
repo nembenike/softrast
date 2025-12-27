@@ -164,6 +164,56 @@ void renderer_draw_rect(Renderer* r, int x, int y, int w, int h, uint32_t color)
     }
 }
 
+void renderer_draw_triangle_shaded(Renderer* r, Vec3 v0, Vec3 v1, Vec3 v2, uint32_t c0, uint32_t c1, uint32_t c2) {
+    int minX = (int)fmaxf(0.0f, fminf(fminf(v0.x, v1.x), v2.x));
+    int minY = (int)fmaxf(0.0f, fminf(fminf(v0.y, v1.y), v2.y));
+    int maxX = (int)fminf(r->width-1.0f, fmaxf(fmaxf(v0.x, v1.x), v2.x));
+    int maxY = (int)fminf(r->height-1.0f, fmaxf(fmaxf(v0.y, v1.y), v2.y));
+
+    float area = edge(v0, v1, v2.x, v2.y);
+    if (fabsf(area) < 1e-6f) return;
+
+    // unpack colors to float channels 0..255
+    float r0 = (float)((c0 >> 16) & 0xFF);
+    float g0 = (float)((c0 >> 8) & 0xFF);
+    float b0 = (float)(c0 & 0xFF);
+    float r1 = (float)((c1 >> 16) & 0xFF);
+    float g1 = (float)((c1 >> 8) & 0xFF);
+    float b1 = (float)(c1 & 0xFF);
+    float r2c = (float)((c2 >> 16) & 0xFF);
+    float g2c = (float)((c2 >> 8) & 0xFF);
+    float b2c = (float)(c2 & 0xFF);
+
+    for (int y = minY; y <= maxY; y++) {
+        for (int x = minX; x <= maxX; x++) {
+            float px = x + 0.5f;
+            float py = y + 0.5f;
+
+            float w0 = edge(v1, v2, px, py) / area;
+            float w1 = edge(v2, v0, px, py) / area;
+            float w2 = edge(v0, v1, px, py) / area;
+
+            if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
+                float z = w0 * v0.z + w1 * v1.z + w2 * v2.z;
+                int idx = y * r->width + x;
+
+                if (z < r->zbuffer[idx]) {
+                    r->zbuffer[idx] = z;
+
+                    float rf = w0 * r0 + w1 * r1 + w2 * r2c;
+                    float gf = w0 * g0 + w1 * g1 + w2 * g2c;
+                    float bf = w0 * b0 + w1 * b1 + w2 * b2c;
+
+                    uint32_t ri = (uint32_t)(rf + 0.5f) & 0xFF;
+                    uint32_t gi = (uint32_t)(gf + 0.5f) & 0xFF;
+                    uint32_t bi = (uint32_t)(bf + 0.5f) & 0xFF;
+                    r->framebuffer[idx] = 0xFF000000 | (ri << 16) | (gi << 8) | bi;
+                }
+            }
+        }
+    }
+}
+
 Vec3 ndc_to_screen(Vec3 v, int width, int height) {
     return (Vec3){
         (v.x + 1.0f) * 0.5f * width,

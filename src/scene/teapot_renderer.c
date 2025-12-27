@@ -13,6 +13,8 @@ struct TeapotRenderer {
     Vec3* view_space_positions;
     Vec3* projected_positions;
     unsigned char* vertex_valid;
+    Vec3* vertex_normals;
+    uint32_t* vertex_colors;
 
     Vec3 center;
     float radius;
@@ -42,6 +44,8 @@ TeapotRenderer* teapot_renderer_create(const Vec3* vertices, const Face* faces, 
         t->view_space_positions = calloc(vertex_count, sizeof(Vec3));
         t->projected_positions  = calloc(vertex_count, sizeof(Vec3));
         t->vertex_valid         = calloc(vertex_count, sizeof(unsigned char));
+        t->vertex_normals       = calloc(vertex_count, sizeof(Vec3));
+        t->vertex_colors        = calloc(vertex_count, sizeof(uint32_t));
     }
 
     if (vertex_count > 0) {
@@ -60,6 +64,29 @@ TeapotRenderer* teapot_renderer_create(const Vec3* vertices, const Face* faces, 
     }
 
     t->last_visible = 1;
+        // compute per-vertex normals (object space) by averaging adjacent face normals
+        if (vertex_count > 0) {
+            // zero initialize
+            for (size_t i = 0; i < vertex_count; ++i) t->vertex_normals[i] = (Vec3){0,0,0};
+            for (size_t i = 0; i < face_count; ++i) {
+                Face f = faces[i];
+                if (f.v1 < 0 || f.v2 < 0 || f.v3 < 0) continue;
+                if ((size_t)f.v1 >= vertex_count || (size_t)f.v2 >= vertex_count || (size_t)f.v3 >= vertex_count) continue;
+                Vec3 a = vertices[f.v1];
+                Vec3 b = vertices[f.v2];
+                Vec3 c = vertices[f.v3];
+                Vec3 e1 = vec3_sub(b, a);
+                Vec3 e2 = vec3_sub(c, a);
+                Vec3 fn = vec3_cross(e1, e2);
+                // accumulate
+                t->vertex_normals[f.v1] = vec3_add(t->vertex_normals[f.v1], fn);
+                t->vertex_normals[f.v2] = vec3_add(t->vertex_normals[f.v2], fn);
+                t->vertex_normals[f.v3] = vec3_add(t->vertex_normals[f.v3], fn);
+            }
+            for (size_t i = 0; i < vertex_count; ++i) {
+                t->vertex_normals[i] = vec3_normalize(t->vertex_normals[i]);
+            }
+        }
     return t;
 }
 
@@ -68,6 +95,8 @@ void teapot_renderer_destroy(TeapotRenderer* t) {
     if (t->view_space_positions) free(t->view_space_positions);
     if (t->projected_positions) free(t->projected_positions);
     if (t->vertex_valid) free(t->vertex_valid);
+    if (t->vertex_normals) free(t->vertex_normals);
+    if (t->vertex_colors) free(t->vertex_colors);
     free(t);
 }
 
@@ -94,13 +123,28 @@ int teapot_renderer_update(TeapotRenderer* t, Mat4 model, Mat4 view, Mat4 proj, 
         t->vertex_valid[i] = 1;
     }
 
+    // compute per-vertex colors using per-vertex normals transformed into view-space
+    Mat4 view_model = mat4_mul(view, model);
+    Vec3 L = vec3_normalize((Vec3){0.2f, 0.4f, -1.0f});
+    const float ambient = 0.15f;
+    for (size_t i = 0; i < t->vertex_count; ++i) {
+        Vec3 n = mat4_mul_vec3_dir(view_model, t->vertex_normals[i]);
+        n = vec3_normalize(n);
+        float diff = vec3_dot(n, L);
+        if (diff < 0.0f) diff = 0.0f;
+        float intensity = ambient + diff * (1.0f - ambient);
+        if (intensity < 0.0f) intensity = 0.0f;
+        if (intensity > 1.0f) intensity = 1.0f;
+        uint8_t c = (uint8_t)(intensity * 255.0f);
+        t->vertex_colors[i] = 0xFF000000 | ((uint32_t)c << 16) | ((uint32_t)c << 8) | (uint32_t)c;
+    }
+
     t->last_inside = (vec3_length(vec3_sub(camera_pos, world_center)) < t->radius);
     return 1;
 }
 
 void teapot_renderer_draw(TeapotRenderer* t, Renderer* r, int wireframe_pref) {
-    if (!t || !r || !t->last_visible) return;
-
+    
     size_t primitives_drawn = 0;
 
     for (size_t i = 0; i < t->face_count; ++i) {
@@ -144,7 +188,11 @@ void teapot_renderer_draw(TeapotRenderer* t, Renderer* r, int wireframe_pref) {
             renderer_draw_line(r, s2, s0, 0xFFFFFFFF);
             primitives_drawn += 3;
         } else {
-            renderer_draw_triangle(r, s0, s1, s2, 0xFFFFFFFF);
+            // use per-vertex colors (Gouraud shading)
+            uint32_t c0 = t->vertex_colors[idxs[0]];
+            uint32_t c1 = t->vertex_colors[idxs[1]];
+            uint32_t c2 = t->vertex_colors[idxs[2]];
+            renderer_draw_triangle_shaded(r, s0, s1, s2, c0, c1, c2);
             primitives_drawn += 1;
         }
     }

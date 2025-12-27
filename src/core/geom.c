@@ -27,3 +27,11 @@ int geom_triangle_backface_cull(const Vec3 screen[3]) {
     }
     return 0;
 }
+
+Vec3 mat4_mul_vec3_dir(Mat4 m, Vec3 v) {
+    Vec3 r;
+    r.x = m.m[0][0]*v.x + m.m[0][1]*v.y + m.m[0][2]*v.z;
+    r.y = m.m[1][0]*v.x + m.m[1][1]*v.y + m.m[1][2]*v.z;
+    r.z = m.m[2][0]*v.x + m.m[2][1]*v.y + m.m[2][2]*v.z;
+    return r;
+}
