@@ -4,13 +4,15 @@
 #include <SDL2/SDL.h>
 
 #include "app.h"
+#include "../core/log.h"
 #include "../core/mat.h"
 #include "../core/vec.h"
-#include "../teapot.h"
 #include "../ui/overlay.h"
 #include "../culling.h"
 #include "../scene/teapot_renderer.h"
 #include "../core/geom.h"
+#include "../assets/pakloader.h"
+#include "../assets/objloader.h"
 
 struct App {
     Window* window;
@@ -22,6 +24,10 @@ struct App {
     int height;
     int wireframe;
     struct TeapotRenderer* teapot;
+    Vec3* loaded_vertices;
+    Face* loaded_faces;
+    size_t loaded_vertex_count;
+    size_t loaded_face_count;
 };
 
 static const Vec3 cube[8] = {
@@ -101,7 +107,43 @@ App* app_create(int width, int height, const char* title) {
 
         SDL_SetRelativeMouseMode(SDL_TRUE);
 
-        app->teapot = teapot_renderer_create(vertices, faces, vertex_count, face_count);
+        app->loaded_vertices = NULL;
+        app->loaded_faces = NULL;
+        app->loaded_vertex_count = 0;
+        app->loaded_face_count = 0;
+
+        PakFile pak = {0};
+        if (pak_open(&pak, "build/assets.pak")) {
+            LOG_INFO("Opened asset pak with %u entries", pak.asset_count);
+            AssetEntry* e = pak_find(&pak, "teapot.obj");
+            if (e) {
+                uint8_t* data = pak_read_asset(&pak, e);
+                if (data) {
+                    if (obj_parse_from_memory(data, e->size, &app->loaded_vertices, &app->loaded_vertex_count,
+                                               &app->loaded_faces, &app->loaded_face_count)) {
+                        // parsed successfully
+                        LOG_INFO("Loaded teapot mesh: %zu vertices, %zu faces",
+                                 app->loaded_vertex_count, app->loaded_face_count);
+                    } else {
+                        // parse failed: cleanup
+                        if (app->loaded_vertices) free(app->loaded_vertices);
+                        if (app->loaded_faces) free(app->loaded_faces);
+                        app->loaded_vertices = NULL;
+                        app->loaded_faces = NULL;
+                        app->loaded_vertex_count = 0;
+                        app->loaded_face_count = 0;
+                    }
+                    free(data);
+                }
+            }
+            pak_close(&pak);
+        }
+
+        if (app->loaded_vertices && app->loaded_faces) {
+            app->teapot = teapot_renderer_create(app->loaded_vertices, app->loaded_faces, app->loaded_vertex_count, app->loaded_face_count);
+        } else {
+            app->teapot = NULL;
+        }
 
     return app;
 }
@@ -111,6 +153,8 @@ void app_destroy(App* app) {
     renderer_destroy(app->renderer);
     window_destroy(app->window);
     if (app->teapot) teapot_renderer_destroy(app->teapot);
+    // free loaded mesh if any
+    if (app->loaded_vertices || app->loaded_faces) obj_free_mesh(app->loaded_vertices, app->loaded_faces);
     free(app);
 }
 

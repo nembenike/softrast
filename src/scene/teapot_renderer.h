@@ -2,7 +2,7 @@
 #define TEAPOT_RENDERER_H
 
 #include "../core/vec.h"
-#include "../teapot.h"
+#include "../assets/objloader.h"
 #include "../core/mat.h"
 #include "../renderer/renderer.h"
 

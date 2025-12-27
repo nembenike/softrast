@@ -1,3 +1,7 @@
+/*
+Kinda obsolete but we'll keep it
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

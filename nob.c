@@ -23,23 +23,26 @@
 
 // Some folder paths that we use throughout the build process.
 #define BUILD_FOLDER "build/"
-#define SRC_FOLDER   "src/"
+#define SRC_FOLDER "src/"
 #define TOOLS_FOLDER "tools/"
 
-int build_assets(Nob_Cmd* cmd) {
-    if (!nob_mkdir_if_not_exists(BUILD_FOLDER)) return 1;
+int build_assets(Nob_Cmd *cmd)
+{
+    if (!nob_mkdir_if_not_exists(BUILD_FOLDER))
+        return 1;
 
     // Compile the asset packer
-    nob_cmd_append(cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-o", TOOLS_FOLDER"asset2pak", TOOLS_FOLDER"asset2pak.c");
-    if (!nob_cmd_run(cmd)) return 1;
+    nob_cmd_append(cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-o", TOOLS_FOLDER "asset2pak", TOOLS_FOLDER "asset2pak.c");
+    if (!nob_cmd_run(cmd))
+        return 1;
 
     // Run asset packer
-    nob_cmd_append(cmd, "./tools/asset2pak", BUILD_FOLDER"assets.pak", "assets/objs/teapot.obj");
-    if (!nob_cmd_run(cmd)) return 1;
+    nob_cmd_append(cmd, "./tools/asset2pak", BUILD_FOLDER "assets.pak", "assets/objs/teapot.obj");
+    if (!nob_cmd_run(cmd))
+        return 1;
 
     return 0;
 }
-
 
 int main(int argc, char **argv)
 {
@@ -59,13 +62,16 @@ int main(int argc, char **argv)
     // command line that you want to execute.
     Nob_Cmd cmd = {0};
 
-    if (argc > 1 && strcmp(argv[1], "obj2c") == 0) {
-	nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-o", TOOLS_FOLDER"obj2c", TOOLS_FOLDER"obj2c.c");
-	if (!nob_cmd_run(&cmd)) return 1;
-	return 0;
+    if (argc > 1 && strcmp(argv[1], "obj2c") == 0)
+    {
+        nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-o", TOOLS_FOLDER "obj2c", TOOLS_FOLDER "obj2c.c");
+        if (!nob_cmd_run(&cmd))
+            return 1;
+        return 0;
     }
 
-    if (argc > 1 && strcmp(argv[1], "assets") == 0) {
+    if (argc > 1 && strcmp(argv[1], "assets") == 0)
+    {
         build_assets(&cmd);
     }
 
@@ -80,16 +86,17 @@ int main(int argc, char **argv)
                    SRC_FOLDER "platform/input.c",
                    SRC_FOLDER "platform/time.c",
                    SRC_FOLDER "renderer/renderer.c",
-                 SRC_FOLDER "core/geom.c",
+                   SRC_FOLDER "core/geom.c",
                    SRC_FOLDER "culling.c",
                    SRC_FOLDER "scene/teapot_renderer.c",
-                         SRC_FOLDER "core/camera.c",
-                     SRC_FOLDER "teapot.c",
-                     SRC_FOLDER "ui/overlay.c"
-                );
+                   SRC_FOLDER "core/camera.c",
+                   SRC_FOLDER "assets/pakloader.c",
+                   SRC_FOLDER "assets/objloader.c",
+                   SRC_FOLDER "ui/overlay.c");
 
     // Let's execute the command.
-    if (!nob_cmd_run(&cmd)) return 1;
+    if (!nob_cmd_run(&cmd))
+        return 1;
     // nob_cmd_run() automatically resets the cmd array, so you can nob_cmd_append() more strings
     // into it.
 
