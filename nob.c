@@ -37,7 +37,7 @@ int build_assets(Nob_Cmd *cmd)
         return 1;
 
     // Run asset packer
-    nob_cmd_append(cmd, "./tools/asset2pak", BUILD_FOLDER "assets.pak", "assets/objs/teapot.obj");
+    nob_cmd_append(cmd, "./tools/asset2pak", BUILD_FOLDER "assets.pak", "assets/objs/teapot.obj", "assets/objs/cat.obj");
     if (!nob_cmd_run(cmd))
         return 1;
 
@@ -92,7 +92,8 @@ int main(int argc, char **argv)
                    SRC_FOLDER "core/camera.c",
                    SRC_FOLDER "assets/pakloader.c",
                    SRC_FOLDER "assets/objloader.c",
-                   SRC_FOLDER "ui/overlay.c");
+                   SRC_FOLDER "ui/overlay.c",
+		   SRC_FOLDER "assets/model.c");
 
     // Let's execute the command.
     if (!nob_cmd_run(&cmd))

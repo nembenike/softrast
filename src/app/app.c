@@ -13,6 +13,7 @@
 #include "../core/geom.h"
 #include "../assets/pakloader.h"
 #include "../assets/objloader.h"
+#include "../assets/model.h"
 
 typedef enum {
     APP_STATE_LOADING,
@@ -179,16 +180,17 @@ void app_run(App* app) {
                 snprintf(app->loading_message, sizeof(app->loading_message), "Opening %s", "build/assets.pak");
                 if (pak_open(&pak, "build/assets.pak")) {
                     LOG_INFO("Opened asset pak with %u entries", pak.asset_count);
-                    snprintf(app->loading_message, sizeof(app->loading_message), "Looking for %s", "teapot.obj");
-                    AssetEntry* e = pak_find(&pak, "teapot.obj");
+                    snprintf(app->loading_message, sizeof(app->loading_message), "Looking for %s", "cat.obj");
+                    AssetEntry* e = pak_find(&pak, "cat.obj");
                     if (e) {
                         snprintf(app->loading_message, sizeof(app->loading_message), "Loading %s", e->name);
                         uint8_t* data = pak_read_asset(&pak, e);
                         if (data) {
                             if (obj_parse_from_memory(data, e->size, &app->loaded_vertices, &app->loaded_vertex_count,
                                                        &app->loaded_faces, &app->loaded_face_count)) {
-                                LOG_INFO("Loaded teapot mesh: %zu vertices, %zu faces",
+                                LOG_INFO("Loaded cat mesh: %zu vertices, %zu faces",
                                          app->loaded_vertex_count, app->loaded_face_count);
+				normalize_model(app->loaded_vertices, app->loaded_vertex_count, 1.0f);
                             } else {
                                 LOG_ERROR("Failed to parse teapot mesh");
                                 if (app->loaded_vertices) free(app->loaded_vertices);
@@ -204,7 +206,7 @@ void app_run(App* app) {
                             snprintf(app->loading_message, sizeof(app->loading_message), "Failed to read %s", e->name);
                         }
                     } else {
-                        snprintf(app->loading_message, sizeof(app->loading_message), "%s not found", "teapot.obj");
+                        snprintf(app->loading_message, sizeof(app->loading_message), "%s not found", "cat.obj");
                     }
                     pak_close(&pak);
                 } else {
