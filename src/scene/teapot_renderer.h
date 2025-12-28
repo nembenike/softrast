@@ -1,10 +1,10 @@
 #ifndef TEAPOT_RENDERER_H
 #define TEAPOT_RENDERER_H
 
-#include "../core/vec.h"
-#include "../assets/objloader.h"
-#include "../core/mat.h"
-#include "../renderer/renderer.h"
+#include "core/vec.h"
+#include "assets/objloader.h"
+#include "core/mat.h"
+#include "renderer/renderer.h"
 
 typedef struct TeapotRenderer TeapotRenderer;
 

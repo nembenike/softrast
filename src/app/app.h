@@ -1,11 +1,11 @@
 #ifndef APP_H
 #define APP_H
 
-#include "../platform/input.h"
-#include "../renderer/renderer.h"
-#include "../core/camera.h"
-#include "../platform/time.h"
-#include "../platform/window.h"
+#include "platform/input.h"
+#include "renderer/renderer.h"
+#include "core/camera.h"
+#include "platform/time.h"
+#include "platform/window.h"
 
 typedef struct App App;
 

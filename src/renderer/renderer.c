@@ -4,8 +4,8 @@
 #include <SDL2/SDL.h>
 
 #include "renderer.h"
-#include "../core/vec.h"
-#include "../core/math.h"
+#include "core/vec.h"
+#include "core/math.h"
 
 struct Renderer {
     int width, height;

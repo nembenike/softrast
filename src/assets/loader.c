@@ -1,7 +1,7 @@
 #include "loader.h"
-#include "../assets/pakloader.h"
-#include "../assets/objloader.h"
-#include "../core/log.h"
+#include "assets/pakloader.h"
+#include "assets/objloader.h"
+#include "core/log.h"
 #include <string.h>
 #include <stdlib.h>
 

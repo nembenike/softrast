@@ -3,8 +3,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "../core/vec.h"
-#include "../assets/objloader.h"
+#include "core/vec.h"
+#include "assets/objloader.h"
 
 // Loads `asset_name` from `pak_path`. On success returns 1 and fills out_* fields.
 // On failure returns 0 and writes a short human message to out_message (if provided).

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../core/vec.h"
+#include "core/vec.h"
 
 // Shared glyph tables (3x5 font)
 static const uint8_t glyph_digits[10][5] = {

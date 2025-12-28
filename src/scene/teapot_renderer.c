@@ -1,10 +1,10 @@
 #include "teapot_renderer.h"
-#include "../core/geom.h"
+#include "core/geom.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "../core/culling.h"
-#include "../core/math.h"
+#include "core/culling.h"
+#include "core/math.h"
 
 struct TeapotRenderer {
     const Vec3* vertices;

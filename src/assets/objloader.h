@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "../core/vec.h"
+#include "core/vec.h"
 
 typedef struct { int v1, v2, v3; } Face;
 

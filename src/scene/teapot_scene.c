@@ -1,5 +1,5 @@
 #include "teapot_scene.h"
-#include "../scene/teapot_renderer.h"
+#include "scene/teapot_renderer.h"
 #include <stdlib.h>
 #include <string.h>
 

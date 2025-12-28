@@ -1,10 +1,10 @@
 #ifndef SCENE_H
 #define SCENE_H
 
-#include "../renderer/renderer.h"
-#include "../platform/input.h"
-#include "../core/camera.h"
-#include "../core/mat.h"
+#include "renderer/renderer.h"
+#include "platform/input.h"
+#include "core/camera.h"
+#include "core/mat.h"
 
 typedef struct Scene Scene;
 

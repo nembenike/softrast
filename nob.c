@@ -17,7 +17,7 @@ int build_assets(Nob_Cmd *cmd)
 
     nob_cmd_append(cmd,
         "cc", "-Wall", "-Wextra", "-std=c99",
-        "-o", TOOLS_FOLDER "asset2pak",
+            "-o", TOOLS_FOLDER "asset2pak", "-Isrc",
         TOOLS_FOLDER "asset2pak.c");
     if (!nob_cmd_run(cmd))
         return 1;
@@ -41,7 +41,7 @@ int build_game(Nob_Cmd *cmd)
 
     nob_cmd_append(cmd,
         "cc",
-        "-Wall", "-Wextra", "-std=c99",
+        "-Wall", "-Wextra", "-std=c99", "-Isrc",
         "-lSDL2", "-lm",
         "-O3", "-march=native", "-flto",
         "-o", BUILD_FOLDER "engine",
@@ -78,7 +78,8 @@ int build_obj2c(Nob_Cmd *cmd)
 {
     nob_cmd_append(cmd,
         "cc", "-Wall", "-Wextra", "-std=c99",
-        "-o", TOOLS_FOLDER "obj2c",
+            "-o", TOOLS_FOLDER "obj2c",
+            "-Isrc",
         TOOLS_FOLDER "obj2c.c");
 
     return !nob_cmd_run(cmd);

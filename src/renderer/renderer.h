@@ -2,7 +2,7 @@
 #define RENDERER_H
 
 #include <stdint.h>
-#include "../core/vec.h"
+#include "core/vec.h"
 
 typedef enum {
     RENDERER_WINDING_CCW = 0,

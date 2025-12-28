@@ -1,6 +1,6 @@
 #include "model.h"
 #include <float.h>
-#include "../core/vec.h"
+#include "core/vec.h"
 
 void normalize_model(Vec3* vertices, size_t vertex_count, float target_size) {
     if (!vertices || vertex_count == 0) return;
