@@ -55,7 +55,7 @@ int build_game(Nob_Cmd *cmd)
         SRC_FOLDER "platform/time.c",
         SRC_FOLDER "renderer/renderer.c",
         SRC_FOLDER "core/geom.c",
-        SRC_FOLDER "culling.c",
+        SRC_FOLDER "core/culling.c",
         SRC_FOLDER "scene/teapot_renderer.c",
         SRC_FOLDER "core/camera.c",
         SRC_FOLDER "assets/pakloader.c",

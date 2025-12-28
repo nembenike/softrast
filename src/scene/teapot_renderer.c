@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "../culling.h"
+#include "../core/culling.h"
 #include "../core/math.h"
 
 struct TeapotRenderer {

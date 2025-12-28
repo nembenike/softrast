@@ -10,7 +10,7 @@
 #include "../core/mat.h"
 #include "../core/vec.h"
 #include "../ui/overlay.h"
-#include "../culling.h"
+#include "../core/culling.h"
 #include "../scene/scene.h"
 #include "../scene/scene_factory.h"
 #include "../scene/teapot_scene.h"
