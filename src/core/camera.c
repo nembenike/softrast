@@ -24,6 +24,7 @@ Camera camera_create(Vec3 position, Vec3 target, Vec3 up, float speed, float sen
     cam.sensitivity = sensitivity;
     cam.yaw = -90.0f;
     cam.pitch = 0.0f;
+    cam.distance = 0.0f; /* default: first-person (no orbit) */
     camera_update_direction(&cam);
     return cam;
 }
@@ -46,12 +47,15 @@ void camera_process_input(Camera* cam, CameraInput input, float delta_time) {
     Vec3 right   = vec3_normalize(vec3_cross(forward, cam->up));
     float velocity = cam->speed * delta_time;
 
-    if (input.move_forward) cam->position = vec3_add(cam->position, vec3_scale(forward, velocity));
-    if (input.move_back)    cam->position = vec3_sub(cam->position, vec3_scale(forward, velocity));
-    if (input.move_left)    cam->position = vec3_sub(cam->position, vec3_scale(right, velocity));
-    if (input.move_right)   cam->position = vec3_add(cam->position, vec3_scale(right, velocity));
-
     camera_process_mouse(cam, input.mouse_dx, input.mouse_dy);
+
+    if (cam->distance <= 0.0f) {
+        if (input.move_forward) cam->position = vec3_add(cam->position, vec3_scale(forward, velocity));
+        if (input.move_back)    cam->position = vec3_sub(cam->position, vec3_scale(forward, velocity));
+        if (input.move_left)    cam->position = vec3_sub(cam->position, vec3_scale(right, velocity));
+        if (input.move_right)   cam->position = vec3_add(cam->position, vec3_scale(right, velocity));
+    }
+
     camera_update_direction(cam);
 }
 
@@ -61,5 +65,10 @@ void camera_update_direction(Camera* cam) {
     dir.y = sinf(DEG2RAD(cam->pitch));
     dir.z = sinf(DEG2RAD(cam->yaw)) * cosf(DEG2RAD(cam->pitch));
 
-    cam->target = vec3_add(cam->position, vec3_normalize(dir));
+    if (cam->distance > 0.0f) {
+        Vec3 nd = vec3_normalize(dir);
+        cam->position = vec3_sub(cam->target, vec3_scale(nd, cam->distance));
+    } else {
+        cam->target = vec3_add(cam->position, vec3_normalize(dir));
+    }
 }

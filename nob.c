@@ -68,7 +68,9 @@ int build_game(Nob_Cmd *cmd)
         SRC_FOLDER "assets/loader.c",
         SRC_FOLDER "debug/profiler.c",
         SRC_FOLDER "core/camera_input.c",
-        SRC_FOLDER "ui/overlay_helpers.c"
+        SRC_FOLDER "ui/overlay_helpers.c",
+        SRC_FOLDER "scene/game_scene.c",
+        SRC_FOLDER "scene/game_object.c"
     );
 
     return !nob_cmd_run(cmd);

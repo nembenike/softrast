@@ -48,6 +48,7 @@ struct App {
     int loading_done;
     float loading_start_time;
     char loading_message[128];
+    int third_person_mode;
 };
 
 static const Vec3 cube[8] = {
@@ -140,6 +141,7 @@ App* app_create(int width, int height, const char* title) {
         app->loaded_vertex_count = 0;
         app->loaded_face_count = 0;
         app->state = APP_STATE_LOADING;
+        app->third_person_mode = 0;
         app->loading_started = 0;
         app->loading_done = 0;
         app->loading_start_time = 0.0f;
@@ -214,8 +216,9 @@ void app_run(App* app) {
 
 
             if (app->loaded_vertices && app->loaded_faces) {
-                app->scene = scene_factory_create_start_scene(app->loaded_vertices, app->loaded_faces, app->loaded_vertex_count, app->loaded_face_count, app->width, app->height);
+                app->scene = scene_factory_create_game_scene(app->loaded_vertices, app->loaded_faces, app->loaded_vertex_count, app->loaded_face_count, app->width, app->height);
                 scene_manager_set(app->scene);
+                app->third_person_mode = 1;
             } else {
                 app->scene = NULL;
             }
@@ -225,7 +228,9 @@ void app_run(App* app) {
         }
 
         if (app->state == APP_STATE_RUNNING) {
-            camera_handle_input(&app->camera, &app->input, app->time.delta_seconds);
+            /* Always process camera input (mouse yaw/pitch). Camera movement via WASD
+             * is ignored when camera distance > 0 (orbit/third-person). */
+            handle_camera_input(app);
 
             scene_manager_update(app->time.delta_seconds, &app->input, &app->camera, proj);
 

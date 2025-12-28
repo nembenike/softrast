@@ -12,6 +12,7 @@ typedef struct Camera {
     float pitch;
     float speed;
     float sensitivity;
+    float distance;
 } Camera;
 
 typedef struct CameraInput {
