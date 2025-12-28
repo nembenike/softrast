@@ -1,7 +1,9 @@
 # 3D Software Rasterizer
 
 ## What is this?
-If you couldn't guess by the name, it rasterized 3D objects into 2D stuff on the screen.
+If you couldn't guess by the name, it rasterizes 3D objects into 2D stuff on the screen.
+
+![screenshot](doc/screenshot.png)
 
 ## How?
 A bunch of maths, most of which I don't even understand (yet).
