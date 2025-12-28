@@ -3,27 +3,11 @@
 // time you run the `nob` executable if it detects that you modifed nob.c it will rebuild
 // itself automatically thanks to NOB_GO_REBUILD_URSELF (see below)
 
-// nob.h is an stb-style library https://github.com/nothings/stb/blob/master/docs/stb_howto.txt
-// What that means is that it's a single file that acts both like .c and .h files, but by default
-// when you include it, it acts only as .h. To make it include implementations of the functions
-// you must define NOB_IMPLEMENTATION macro. This is done to give you full control over where
-// the implementations go.
 #define NOB_IMPLEMENTATION
-
-// Always keep a copy of nob.h in your repo. One of my main pet peeves with build systems like CMake
-// and Autotools is that the codebases that use them naturally rot. That is if you do not actively update
-// your build scripts, they may not work with the latest version of the build tools. Here we basically
-// include the entirety of the source code of the tool along with the code base. It will never get
-// outdated (unless you got no standard compliant C compiler lying around, but at that point why are
-// you trying to build a C project?)
-//
-// (In these examples we actually symlinking nob.h, but this is to keep nob.h-s synced among all the
-// examples)
 #include "nob.h"
 
-// Some folder paths that we use throughout the build process.
 #define BUILD_FOLDER "build/"
-#define SRC_FOLDER "src/"
+#define SRC_FOLDER   "src/"
 #define TOOLS_FOLDER "tools/"
 
 int build_assets(Nob_Cmd *cmd)
@@ -31,91 +15,95 @@ int build_assets(Nob_Cmd *cmd)
     if (!nob_mkdir_if_not_exists(BUILD_FOLDER))
         return 1;
 
-    // Compile the asset packer
-    nob_cmd_append(cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-o", TOOLS_FOLDER "asset2pak", TOOLS_FOLDER "asset2pak.c");
+    nob_cmd_append(cmd,
+        "cc", "-Wall", "-Wextra", "-std=c99",
+        "-o", TOOLS_FOLDER "asset2pak",
+        TOOLS_FOLDER "asset2pak.c");
     if (!nob_cmd_run(cmd))
         return 1;
 
-    // Run asset packer
-    nob_cmd_append(cmd, "./tools/asset2pak", BUILD_FOLDER "assets.pak", "assets/objs/teapot.obj", "assets/objs/cat.obj", "assets/objs/monkey.obj");
+    nob_cmd_append(cmd,
+        "./tools/asset2pak",
+        BUILD_FOLDER "assets.pak",
+        "assets/objs/teapot.obj",
+        "assets/objs/cat.obj",
+        "assets/objs/monkey.obj");
     if (!nob_cmd_run(cmd))
         return 1;
 
     return 0;
+}
+
+int build_game(Nob_Cmd *cmd)
+{
+    if (!nob_mkdir_if_not_exists(BUILD_FOLDER))
+        return 1;
+
+    nob_cmd_append(cmd,
+        "cc",
+        "-Wall", "-Wextra", "-std=c99",
+        "-lSDL2", "-lm",
+        "-O3", "-march=native", "-flto",
+        "-o", BUILD_FOLDER "engine",
+
+        SRC_FOLDER "main.c",
+        SRC_FOLDER "app/app.c",
+        SRC_FOLDER "core/arena.c",
+        SRC_FOLDER "core/mat.c",
+        SRC_FOLDER "platform/window.c",
+        SRC_FOLDER "platform/input.c",
+        SRC_FOLDER "platform/time.c",
+        SRC_FOLDER "renderer/renderer.c",
+        SRC_FOLDER "core/geom.c",
+        SRC_FOLDER "culling.c",
+        SRC_FOLDER "scene/teapot_renderer.c",
+        SRC_FOLDER "core/camera.c",
+        SRC_FOLDER "assets/pakloader.c",
+        SRC_FOLDER "assets/objloader.c",
+        SRC_FOLDER "ui/overlay.c",
+        SRC_FOLDER "assets/model.c",
+        SRC_FOLDER "scene/teapot_scene.c",
+        SRC_FOLDER "scene/scene.c",
+        SRC_FOLDER "scene/scene_factory.c",
+        SRC_FOLDER "assets/loader.c",
+        SRC_FOLDER "debug/profiler.c",
+        SRC_FOLDER "core/camera_input.c",
+        SRC_FOLDER "ui/overlay_helpers.c"
+    );
+
+    return !nob_cmd_run(cmd);
+}
+
+int build_obj2c(Nob_Cmd *cmd)
+{
+    nob_cmd_append(cmd,
+        "cc", "-Wall", "-Wextra", "-std=c99",
+        "-o", TOOLS_FOLDER "obj2c",
+        TOOLS_FOLDER "obj2c.c");
+
+    return !nob_cmd_run(cmd);
 }
 
 int main(int argc, char **argv)
 {
-    // This line enables the self-rebuilding. It detects when nob.c is updated and auto rebuilds it then
-    // runs it again.
     NOB_GO_REBUILD_URSELF(argc, argv);
 
-    // It's better to keep all the building artifacts in a separate build folder. Let's create it if it
-    // does not exist yet.
-    //
-    // Majority of the nob command return bool which indicates whether operation has failed or not (true -
-    // success, false - failure). If the operation returned false you don't need to log anything, the
-    // convention is usually that the function logs what happened to itself. Just do
-    // `if (!nob_function()) return;`
-
-    // The working horse of nob is the Nob_Cmd structure. It's a Dynamic Array of strings which represent
-    // command line that you want to execute.
     Nob_Cmd cmd = {0};
 
-    if (argc > 1 && strcmp(argv[1], "obj2c") == 0)
-    {
-        nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-o", TOOLS_FOLDER "obj2c", TOOLS_FOLDER "obj2c.c");
-        if (!nob_cmd_run(&cmd))
-            return 1;
-        return 0;
+    if (argc > 1) {
+        if (strcmp(argv[1], "assets") == 0)
+            return build_assets(&cmd);
+
+        if (strcmp(argv[1], "game") == 0)
+            return build_game(&cmd);
+
+        if (strcmp(argv[1], "obj2c") == 0)
+            return build_obj2c(&cmd);
     }
 
-    build_assets(&cmd);
-
-    if (!nob_mkdir_if_not_exists(BUILD_FOLDER))
+    if (build_assets(&cmd))
         return 1;
 
-    // Let's append the command line arguments
-    nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-std=c99", "-lSDL2", "-lm", "-O3", "-march=native", "-flto",
-                   "-o", BUILD_FOLDER "engine",
-                   SRC_FOLDER "main.c",
-                   SRC_FOLDER "app/app.c",
-                   SRC_FOLDER "core/arena.c",
-                   SRC_FOLDER "core/mat.c",
-                   SRC_FOLDER "platform/window.c",
-                   SRC_FOLDER "platform/input.c",
-                   SRC_FOLDER "platform/time.c",
-                   SRC_FOLDER "renderer/renderer.c",
-                   SRC_FOLDER "core/geom.c",
-                   SRC_FOLDER "culling.c",
-                   SRC_FOLDER "scene/teapot_renderer.c",
-                   SRC_FOLDER "core/camera.c",
-                   SRC_FOLDER "assets/pakloader.c",
-                   SRC_FOLDER "assets/objloader.c",
-                   SRC_FOLDER "ui/overlay.c",
-                   SRC_FOLDER "assets/model.c",
-                   SRC_FOLDER "scene/teapot_scene.c",
-                   SRC_FOLDER "scene/scene.c",
-                   SRC_FOLDER "scene/scene_factory.c",
-                   SRC_FOLDER "assets/loader.c",
-                   SRC_FOLDER "debug/profiler.c",
-                   SRC_FOLDER "core/camera_input.c",
-                   SRC_FOLDER "ui/overlay_helpers.c");
-
-    // Let's execute the command.
-    if (!nob_cmd_run(&cmd))
-        return 1;
-    // nob_cmd_run() automatically resets the cmd array, so you can nob_cmd_append() more strings
-    // into it.
-
-    // nob.h ships with a bunch of nob_cc_* macros that try abstract away the specific compiler.
-    // They are verify basic and not particularly flexible, but you can redefine them if you need to
-    // or not use them at all and create your own abstraction on top of Nob_Cmd.
-    /*nob_cc(&cmd);
-    nob_cc_flags(&cmd);
-    nob_cc_output(&cmd, BUILD_FOLDER "foo");
-    nob_cc_inputs(&cmd, SRC_FOLDER "foo.c");
-    if (!nob_cmd_run(&cmd)) return 1;*/
-
-    return 0;
+    return build_game(&cmd);
 }
+
