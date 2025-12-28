@@ -37,7 +37,7 @@ int build_assets(Nob_Cmd *cmd)
         return 1;
 
     // Run asset packer
-    nob_cmd_append(cmd, "./tools/asset2pak", BUILD_FOLDER "assets.pak", "assets/objs/teapot.obj", "assets/objs/cat.obj");
+    nob_cmd_append(cmd, "./tools/asset2pak", BUILD_FOLDER "assets.pak", "assets/objs/teapot.obj", "assets/objs/cat.obj", "assets/objs/monkey.obj");
     if (!nob_cmd_run(cmd))
         return 1;
 
