@@ -12,7 +12,12 @@
 #include "../ui/overlay.h"
 #include "../culling.h"
 #include "../scene/scene.h"
+#include "../scene/scene_factory.h"
 #include "../scene/teapot_scene.h"
+#include "../assets/loader.h"
+#include "../ui/overlay_helpers.h"
+#include "../core/camera_input.h"
+#include "../debug/profiler.h"
 #include "../core/geom.h"
 #include "../assets/pakloader.h"
 #include "../assets/objloader.h"
@@ -140,6 +145,7 @@ App* app_create(int width, int height, const char* title) {
         app->loading_start_time = 0.0f;
         app->loading_message[0] = '\0';
 
+    profiler_init();
     return app;
 }
 
@@ -184,53 +190,21 @@ void app_run(App* app) {
             }
 
             if (!app->loading_done) {
-                PakFile pak = {0};
-                snprintf(app->loading_message, sizeof(app->loading_message), "Opening %s", "build/assets.pak");
-                if (pak_open(&pak, "build/assets.pak")) {
-                    LOG_INFO("Opened asset pak with %u entries", pak.asset_count);
-                    snprintf(app->loading_message, sizeof(app->loading_message), "Looking for %s", "monkey.obj");
-                    AssetEntry* e = pak_find(&pak, "monkey.obj");
-                    if (e) {
-                        snprintf(app->loading_message, sizeof(app->loading_message), "Loading %s", e->name);
-                        uint8_t* data = pak_read_asset(&pak, e);
-                        if (data) {
-                            if (obj_parse_from_memory(data, e->size, &app->loaded_vertices, &app->loaded_vertex_count,
-                                                       &app->loaded_faces, &app->loaded_face_count)) {
-                                LOG_INFO("Loaded monkey mesh: %zu vertices, %zu faces",
-                                         app->loaded_vertex_count, app->loaded_face_count);
-                                normalize_model(app->loaded_vertices, app->loaded_vertex_count, 1.0f);
-                            } else {
-                                LOG_ERROR("Failed to parse monkey mesh");
-                                if (app->loaded_vertices) free(app->loaded_vertices);
-                                if (app->loaded_faces) free(app->loaded_faces);
-                                app->loaded_vertices = NULL;
-                                app->loaded_faces = NULL;
-                                app->loaded_vertex_count = 0;
-                                app->loaded_face_count = 0;
-                                snprintf(app->loading_message, sizeof(app->loading_message), "Failed to parse %s", e->name);
-                            }
-                            free(data);
-                        } else {
-                            snprintf(app->loading_message, sizeof(app->loading_message), "Failed to read %s", e->name);
-                        }
-                    } else {
-                        snprintf(app->loading_message, sizeof(app->loading_message), "%s not found", "monkey.obj");
-                    }
-                    pak_close(&pak);
+                char msg[128] = {0};
+                if (assets_load_model_from_pak("build/assets.pak", "monkey.obj",
+                                              &app->loaded_vertices, &app->loaded_faces,
+                                              &app->loaded_vertex_count, &app->loaded_face_count,
+                                              msg, sizeof(msg))) {
+                    snprintf(app->loading_message, sizeof(app->loading_message), "Loaded %s", "monkey.obj");
+                    normalize_model(app->loaded_vertices, app->loaded_vertex_count, 1.0f);
                 } else {
-                    snprintf(app->loading_message, sizeof(app->loading_message), "Failed to open %s", "build/assets.pak");
+                    snprintf(app->loading_message, sizeof(app->loading_message), "%s", msg[0] ? msg : "Failed to load model");
                 }
-
                 app->loading_done = 1;
             }
 
             renderer_clear(app->renderer, 0xFF000000);
-            {
-                int w = text_pixel_width(app->loading_message, 4);
-                int x = app->width/2 - w/2;
-                if (x < 0) x = 0;
-                overlay_draw_text(app->renderer, app->loading_message, x, app->height/2 - 8, 4, 0xFFFFFFFF);
-            }
+            overlay_draw_centered_message(app->renderer, app->loading_message, app->width, app->height, 4, 0xFFFFFFFF);
             renderer_present(app->renderer);
 
             if ((app->time.total_seconds - app->loading_start_time) < 1.0f) {
@@ -240,7 +214,7 @@ void app_run(App* app) {
 
 
             if (app->loaded_vertices && app->loaded_faces) {
-                app->scene = teapot_scene_create(app->loaded_vertices, app->loaded_faces, app->loaded_vertex_count, app->loaded_face_count, app->width, app->height);
+                app->scene = scene_factory_create_start_scene(app->loaded_vertices, app->loaded_faces, app->loaded_vertex_count, app->loaded_face_count, app->width, app->height);
                 scene_manager_set(app->scene);
             } else {
                 app->scene = NULL;
@@ -251,9 +225,8 @@ void app_run(App* app) {
         }
 
         if (app->state == APP_STATE_RUNNING) {
-            handle_camera_input(app);
+            camera_handle_input(&app->camera, &app->input, app->time.delta_seconds);
 
-            // Allow scenes to process input and camera state
             scene_manager_update(app->time.delta_seconds, &app->input, &app->camera, proj);
 
             t_start = SDL_GetPerformanceCounter();
@@ -261,12 +234,14 @@ void app_run(App* app) {
             scene_manager_render(app->renderer);
             overlay_draw_fps(app->renderer, app->time.delta_seconds);
             t_end = SDL_GetPerformanceCounter();
-            draw_time += (double)(t_end - t_start) / freq;
+            profiler_record_draw((double)(t_end - t_start) / freq);
 
             t_start = SDL_GetPerformanceCounter();
             renderer_present(app->renderer);
             t_end = SDL_GetPerformanceCounter();
-            present_time += (double)(t_end - t_start) / freq;
+            profiler_record_present((double)(t_end - t_start) / freq);
+
+            profiler_frame_end();
         }
 
         if (app->state == APP_STATE_EXITING) {

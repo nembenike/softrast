@@ -95,7 +95,12 @@ int main(int argc, char **argv)
                    SRC_FOLDER "ui/overlay.c",
                    SRC_FOLDER "assets/model.c",
                    SRC_FOLDER "scene/teapot_scene.c",
-                   SRC_FOLDER "scene/scene.c");
+                   SRC_FOLDER "scene/scene.c",
+                   SRC_FOLDER "scene/scene_factory.c",
+                   SRC_FOLDER "assets/loader.c",
+                   SRC_FOLDER "debug/profiler.c",
+                   SRC_FOLDER "core/camera_input.c",
+                   SRC_FOLDER "ui/overlay_helpers.c");
 
     // Let's execute the command.
     if (!nob_cmd_run(&cmd))
