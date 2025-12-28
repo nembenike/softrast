@@ -69,9 +69,9 @@ int main(int argc, char **argv)
             return 1;
         return 0;
     }
-    
+
     build_assets(&cmd);
-    
+
     if (!nob_mkdir_if_not_exists(BUILD_FOLDER))
         return 1;
 
@@ -93,7 +93,9 @@ int main(int argc, char **argv)
                    SRC_FOLDER "assets/pakloader.c",
                    SRC_FOLDER "assets/objloader.c",
                    SRC_FOLDER "ui/overlay.c",
-		   SRC_FOLDER "assets/model.c");
+                   SRC_FOLDER "assets/model.c",
+                   SRC_FOLDER "scene/teapot_scene.c",
+                   SRC_FOLDER "scene/scene.c");
 
     // Let's execute the command.
     if (!nob_cmd_run(&cmd))

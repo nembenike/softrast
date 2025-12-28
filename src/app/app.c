@@ -11,7 +11,8 @@
 #include "../core/vec.h"
 #include "../ui/overlay.h"
 #include "../culling.h"
-#include "../scene/teapot_renderer.h"
+#include "../scene/scene.h"
+#include "../scene/teapot_scene.h"
 #include "../core/geom.h"
 #include "../assets/pakloader.h"
 #include "../assets/objloader.h"
@@ -32,7 +33,7 @@ struct App {
     int width;
     int height;
     int wireframe;
-    struct TeapotRenderer* teapot;
+    Scene* scene;
     Vec3* loaded_vertices;
     Face* loaded_faces;
     size_t loaded_vertex_count;
@@ -146,8 +147,7 @@ void app_destroy(App* app) {
     if (!app) return;
     renderer_destroy(app->renderer);
     window_destroy(app->window);
-    if (app->teapot) teapot_renderer_destroy(app->teapot);
-    // free loaded mesh if any
+    scene_manager_destroy();
     if (app->loaded_vertices || app->loaded_faces) obj_free_mesh(app->loaded_vertices, app->loaded_faces);
     free(app);
 }
@@ -238,10 +238,12 @@ void app_run(App* app) {
                 continue;
             }
 
+
             if (app->loaded_vertices && app->loaded_faces) {
-                app->teapot = teapot_renderer_create(app->loaded_vertices, app->loaded_faces, app->loaded_vertex_count, app->loaded_face_count);
+                app->scene = teapot_scene_create(app->loaded_vertices, app->loaded_faces, app->loaded_vertex_count, app->loaded_face_count, app->width, app->height);
+                scene_manager_set(app->scene);
             } else {
-                app->teapot = NULL;
+                app->scene = NULL;
             }
 
             app->state = APP_STATE_RUNNING;
@@ -250,22 +252,13 @@ void app_run(App* app) {
 
         if (app->state == APP_STATE_RUNNING) {
             handle_camera_input(app);
-            if (app->input.keyboard.pressed[SDL_SCANCODE_TAB]) {
-                app->wireframe = !app->wireframe;
-            }
 
-            t_end = SDL_GetPerformanceCounter();
-            double input_time = (double)(t_end - t_start) / freq;
+            // Allow scenes to process input and camera state
+            scene_manager_update(app->time.delta_seconds, &app->input, &app->camera, proj);
 
             t_start = SDL_GetPerformanceCounter();
             renderer_clear(app->renderer, 0xFF000000);
-            Mat4 model = compute_model_matrix(angle);
-            Mat4 view  = camera_get_view(&app->camera);
-            int teapot_visible = 0;
-            if (app->teapot) {
-                teapot_visible = teapot_renderer_update(app->teapot, model, view, proj, app->camera.position, app->width, app->height);
-                if (teapot_visible) teapot_renderer_draw(app->teapot, app->renderer, app->wireframe);
-            }
+            scene_manager_render(app->renderer);
             overlay_draw_fps(app->renderer, app->time.delta_seconds);
             t_end = SDL_GetPerformanceCounter();
             draw_time += (double)(t_end - t_start) / freq;
@@ -274,8 +267,6 @@ void app_run(App* app) {
             renderer_present(app->renderer);
             t_end = SDL_GetPerformanceCounter();
             present_time += (double)(t_end - t_start) / freq;
-
-            update_angle(&angle);
         }
 
         if (app->state == APP_STATE_EXITING) {
