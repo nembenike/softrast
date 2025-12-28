@@ -2,6 +2,8 @@
 #include <string.h>
 #include <math.h>
 #include <SDL2/SDL.h>
+#include <time.h>
+#include <stdio.h>
 
 #include "app.h"
 #include "../core/log.h"
@@ -154,7 +156,13 @@ void app_run(App* app) {
     float angle = 0.0f;
     Mat4 proj = mat4_perspective(3.14159265f/3.0f, (float)app->width/app->height, 0.1f, 100.0f);
 
+    uint64_t t_start = 0, t_end = 0;
+    double freq = (double)SDL_GetPerformanceFrequency();
+    double frame_time = 0.0, draw_time = 0.0, present_time = 0.0;
+    int frame_count = 0;
+
     while (!window_should_close(app->window) && !app->input.quit_requested) {
+        t_start = SDL_GetPerformanceCounter();
         input_update(&app->input);
         time_update(&app->time);
         if (app->state == APP_STATE_LOADING) {
@@ -180,8 +188,8 @@ void app_run(App* app) {
                 snprintf(app->loading_message, sizeof(app->loading_message), "Opening %s", "build/assets.pak");
                 if (pak_open(&pak, "build/assets.pak")) {
                     LOG_INFO("Opened asset pak with %u entries", pak.asset_count);
-                    snprintf(app->loading_message, sizeof(app->loading_message), "Looking for %s", "cat.obj");
-                    AssetEntry* e = pak_find(&pak, "cat.obj");
+                    snprintf(app->loading_message, sizeof(app->loading_message), "Looking for %s", "teapot.obj");
+                    AssetEntry* e = pak_find(&pak, "teapot.obj");
                     if (e) {
                         snprintf(app->loading_message, sizeof(app->loading_message), "Loading %s", e->name);
                         uint8_t* data = pak_read_asset(&pak, e);
@@ -190,7 +198,7 @@ void app_run(App* app) {
                                                        &app->loaded_faces, &app->loaded_face_count)) {
                                 LOG_INFO("Loaded cat mesh: %zu vertices, %zu faces",
                                          app->loaded_vertex_count, app->loaded_face_count);
-				normalize_model(app->loaded_vertices, app->loaded_vertex_count, 1.0f);
+                                normalize_model(app->loaded_vertices, app->loaded_vertex_count, 1.0f);
                             } else {
                                 LOG_ERROR("Failed to parse teapot mesh");
                                 if (app->loaded_vertices) free(app->loaded_vertices);
@@ -206,7 +214,7 @@ void app_run(App* app) {
                             snprintf(app->loading_message, sizeof(app->loading_message), "Failed to read %s", e->name);
                         }
                     } else {
-                        snprintf(app->loading_message, sizeof(app->loading_message), "%s not found", "cat.obj");
+                        snprintf(app->loading_message, sizeof(app->loading_message), "%s not found", "teapot.obj");
                     }
                     pak_close(&pak);
                 } else {
@@ -242,25 +250,30 @@ void app_run(App* app) {
 
         if (app->state == APP_STATE_RUNNING) {
             handle_camera_input(app);
-
             if (app->input.keyboard.pressed[SDL_SCANCODE_TAB]) {
                 app->wireframe = !app->wireframe;
             }
 
-            renderer_clear(app->renderer, 0xFF000000);
+            t_end = SDL_GetPerformanceCounter();
+            double input_time = (double)(t_end - t_start) / freq;
 
+            t_start = SDL_GetPerformanceCounter();
+            renderer_clear(app->renderer, 0xFF000000);
             Mat4 model = compute_model_matrix(angle);
             Mat4 view  = camera_get_view(&app->camera);
-
             int teapot_visible = 0;
             if (app->teapot) {
                 teapot_visible = teapot_renderer_update(app->teapot, model, view, proj, app->camera.position, app->width, app->height);
                 if (teapot_visible) teapot_renderer_draw(app->teapot, app->renderer, app->wireframe);
             }
-
             overlay_draw_fps(app->renderer, app->time.delta_seconds);
+            t_end = SDL_GetPerformanceCounter();
+            draw_time += (double)(t_end - t_start) / freq;
 
+            t_start = SDL_GetPerformanceCounter();
             renderer_present(app->renderer);
+            t_end = SDL_GetPerformanceCounter();
+            present_time += (double)(t_end - t_start) / freq;
 
             update_angle(&angle);
         }
@@ -270,5 +283,16 @@ void app_run(App* app) {
         }
 
         input_end_frame(&app->input);
+        frame_count++;
+        t_end = SDL_GetPerformanceCounter();
+        frame_time += (double)(t_end - t_start) / freq;
+
+        // Print timing every 300 frames
+        if (frame_count % 300 == 0) {
+            printf("[PROFILE] avg frame: %.4f ms, draw: %.4f ms, present: %.4f ms\n",
+                (frame_time / frame_count) * 1000.0,
+                (draw_time / frame_count) * 1000.0,
+                (present_time / frame_count) * 1000.0);
+        }
     }
 }

@@ -112,37 +112,33 @@ void renderer_draw_triangle(Renderer* r, Vec3 v0, Vec3 v1, Vec3 v2, uint32_t col
 }
 
 void renderer_draw_line(Renderer* r, Vec3 p0, Vec3 p1, uint32_t color) {
-    int x0 = (int)roundf(clampf(p0.x, 0.0f, r->width-1.0f));
-    int y0 = (int)roundf(clampf(p0.y, 0.0f, r->height-1.0f));
-    int x1 = (int)roundf(clampf(p1.x, 0.0f, r->width-1.0f));
-    int y1 = (int)roundf(clampf(p1.y, 0.0f, r->height-1.0f));
+    int x0 = (int)clampf(p0.x, 0.0f, r->width-1.0f);
+    int y0 = (int)clampf(p0.y, 0.0f, r->height-1.0f);
+    int x1 = (int)clampf(p1.x, 0.0f, r->width-1.0f);
+    int y1 = (int)clampf(p1.y, 0.0f, r->height-1.0f);
+    float z0 = p0.z;
+    float z1 = p1.z;
 
     int dx = abs(x1 - x0);
     int dy = abs(y1 - y0);
-    int steps = dx > dy ? dx : dy;
-    if (steps == 0) {
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
+    int err = (dx > dy ? dx : -dy) / 2;
+    int n = (dx > dy ? dx : dy) + 1;
+
+    for (int i = 0; i < n; ++i) {
         if (x0 >= 0 && x0 < r->width && y0 >= 0 && y0 < r->height) {
+            float t = n > 1 ? (float)i / (float)(n-1) : 0.0f;
+            float z = lerpf(z0, z1, t);
             int idx = y0 * r->width + x0;
-            if (p0.z < r->zbuffer[idx]) {
-                r->zbuffer[idx] = p0.z;
+            if (z < r->zbuffer[idx]) {
+                r->zbuffer[idx] = z;
                 r->framebuffer[idx] = color;
             }
         }
-        return;
-    }
-
-    for (int i = 0; i <= steps; ++i) {
-        float t = (float)i / (float)steps;
-        int x = (int)roundf(lerpf(x0, x1, t));
-        int y = (int)roundf(lerpf(y0, y1, t));
-        float z = lerpf(p0.z, p1.z, t);
-
-        if (x < 0 || x >= r->width || y < 0 || y >= r->height) continue;
-        int idx = y * r->width + x;
-        if (z < r->zbuffer[idx]) {
-            r->zbuffer[idx] = z;
-            r->framebuffer[idx] = color;
-        }
+        int e2 = err;
+        if (e2 > -dx) { err -= dy; x0 += sx; }
+        if (e2 < dy)  { err += dx; y0 += sy; }
     }
 }
 
@@ -224,6 +220,8 @@ Vec3 ndc_to_screen(Vec3 v, int width, int height) {
 }
 
 void renderer_present(Renderer* r) {
+    // Optimization note: If the framebuffer hasn't changed, skip update/copy.
+    // For now, always update. Consider double buffering or dirty rects for further optimization.
     SDL_UpdateTexture(r->texture, NULL, r->framebuffer, r->width * sizeof(uint32_t));
     SDL_RenderClear(r->sdl_renderer);
     SDL_RenderCopy(r->sdl_renderer, r->texture, NULL, NULL);
