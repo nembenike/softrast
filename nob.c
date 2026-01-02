@@ -15,19 +15,29 @@ int build_assets(Nob_Cmd *cmd)
     if (!nob_mkdir_if_not_exists(BUILD_FOLDER))
         return 1;
 
+    Nob_Procs procs = {0};
+
     nob_cmd_append(cmd,
         "cc", "-Wall", "-Wextra", "-std=c99",
             "-o", TOOLS_FOLDER "asset2pak", "-Isrc",
         TOOLS_FOLDER "asset2pak.c");
-    if (!nob_cmd_run(cmd))
+    if (!nob_cmd_run(cmd, .async = &procs))
+        return 1;
+
+    nob_cmd_append(cmd,
+        "cc", "-Wall", "-Wextra", "-std=c99",
+            "-o", TOOLS_FOLDER "obj2c", "-Isrc",
+        TOOLS_FOLDER "obj2c.c");
+    if (!nob_cmd_run(cmd, .async = &procs))
+        return 1;
+
+    if (!nob_procs_flush(&procs))
         return 1;
 
     nob_cmd_append(cmd,
         "./tools/asset2pak",
         BUILD_FOLDER "assets.pak",
-        "assets/objs/teapot.obj",
-        "assets/objs/cat.obj",
-        "assets/objs/monkey.obj");
+        "assets/objs/penger/penger.obj");
     if (!nob_cmd_run(cmd))
         return 1;
 
@@ -39,13 +49,10 @@ int build_game(Nob_Cmd *cmd)
     if (!nob_mkdir_if_not_exists(BUILD_FOLDER))
         return 1;
 
-    nob_cmd_append(cmd,
-        "cc",
-        "-Wall", "-Wextra", "-std=c99", "-Isrc",
-        "-lSDL2", "-lm",
-        "-O3", "-march=native", "-flto",
-        "-o", BUILD_FOLDER "engine",
+    if (!nob_mkdir_if_not_exists(BUILD_FOLDER "obj/"))
+        return 1;
 
+    const char *sources[] = {
         SRC_FOLDER "main.c",
         SRC_FOLDER "app/app.c",
         SRC_FOLDER "core/arena.c",
@@ -70,10 +77,50 @@ int build_game(Nob_Cmd *cmd)
         SRC_FOLDER "core/camera_input.c",
         SRC_FOLDER "ui/overlay_helpers.c",
         SRC_FOLDER "scene/game_scene.c",
-        SRC_FOLDER "scene/game_object.c"
-    );
+        SRC_FOLDER "scene/game_object.c",
+        SRC_FOLDER "assets/image.c",
+    };
 
-    return !nob_cmd_run(cmd);
+    size_t src_count = sizeof(sources) / sizeof(sources[0]);
+
+    Nob_Procs procs = {0};
+    Nob_Cmd objs = {0};
+
+    for (size_t i = 0; i < src_count; ++i) {
+        const char *src = sources[i];
+        const char *base = nob_path_name(src); // e.g. "main.c"
+        char *obj = nob_temp_sprintf(BUILD_FOLDER "obj/%s.o", base);
+
+        nob_cmd_append(cmd,
+            "cc", "-Wall", "-Wextra", "-std=c99", "-Isrc",
+            "-O3", "-march=native", "-flto", "-c",
+            src,
+            "-o", obj);
+
+        if (!nob_cmd_run(cmd, .async = &procs))
+            return 1;
+
+        nob_da_append(&objs, obj);
+    }
+
+    if (!nob_procs_flush(&procs))
+        return 1;
+
+    Nob_Cmd link = {0};
+    nob_cmd_append(&link,
+        "cc",
+        "-o", BUILD_FOLDER "engine",
+        "-lSDL2", "-lm",
+        "-O3", "-march=native", "-flto=auto");
+
+    if (objs.count > 0) {
+        nob_da_append_many(&link, objs.items, objs.count);
+    }
+
+    if (!nob_cmd_run(&link))
+        return 1;
+
+    return 0;
 }
 
 int build_obj2c(Nob_Cmd *cmd)
@@ -109,4 +156,3 @@ int main(int argc, char **argv)
 
     return build_game(&cmd);
 }
-
