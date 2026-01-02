@@ -37,7 +37,9 @@ int build_assets(Nob_Cmd *cmd)
     nob_cmd_append(cmd,
         "./tools/asset2pak",
         BUILD_FOLDER "assets.pak",
-        "assets/objs/penger/penger.obj");
+        "assets/objs/cat.obj",
+        "assets/objs/monkey.obj",
+        "assets/objs/teapot.obj");
     if (!nob_cmd_run(cmd))
         return 1;
 
@@ -78,7 +80,6 @@ int build_game(Nob_Cmd *cmd)
         SRC_FOLDER "ui/overlay_helpers.c",
         SRC_FOLDER "scene/game_scene.c",
         SRC_FOLDER "scene/game_object.c",
-        SRC_FOLDER "assets/image.c",
     };
 
     size_t src_count = sizeof(sources) / sizeof(sources[0]);
