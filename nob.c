@@ -111,12 +111,13 @@ int build_game(Nob_Cmd *cmd)
     nob_cmd_append(&link,
         "cc",
         "-o", BUILD_FOLDER "engine",
-        "-lSDL2", "-lm",
         "-O3", "-march=native", "-flto=auto");
 
     if (objs.count > 0) {
         nob_da_append_many(&link, objs.items, objs.count);
     }
+
+    nob_cmd_append(&link, "-lSDL2", "-lm");
 
     if (!nob_cmd_run(&link))
         return 1;
